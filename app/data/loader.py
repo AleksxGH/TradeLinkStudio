@@ -31,7 +31,7 @@ def read_data(file_path):
     matrix = df.iloc[row_start:row_end, col_start:col_end].to_numpy(dtype=np.float64)
     matrix = np.nan_to_num(matrix, nan=0)
 
-    return vertices, subset_size, quotas, matrix
+    return df, vertices, subset_size, quotas, matrix
 
 def check_file(file_path):
     pass

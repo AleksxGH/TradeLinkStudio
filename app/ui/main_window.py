@@ -11,6 +11,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
+
+import pandas as pd
+
+from app.data.exporter import save_results
 from app.data.loader import read_data
 from app.core.project import Project
 from app.services.index_service import calculate_all_indices
@@ -87,7 +91,7 @@ class MainWindow(QMainWindow):
         print("DEBUG: Selected file:", file_path)
 
         try:
-            vertices, subset_size, quotas, matrix = read_data(file_path)
+            df, vertices, subset_size, quotas, matrix = read_data(file_path)
 
             print("DEBUG: File parsed successfully")
             print("Vertices:", len(vertices))
@@ -95,6 +99,7 @@ class MainWindow(QMainWindow):
             print("Matrix shape:", matrix.shape)
 
             self.project.load(
+                df,
                 file_path,
                 vertices,
                 subset_size,
@@ -125,7 +130,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
 
     def calculate_indices(self):
-
         if self.project.matrix is None:
             return
 
@@ -138,29 +142,29 @@ class MainWindow(QMainWindow):
         self.table_view.resizeRowsToContents()
         self.table_view.horizontalHeader().setStretchLastSection(True)
 
+        self.export_button.setEnabled(True)
 
     def export_data(self):
-        if self.project.matrix is None:
+        """Экспорт результатов проекта в Excel через UI"""
+        if not self.project.results:
+            QMessageBox.warning(self, "Export", "No data to export!")
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export data",
+            "Save Results",
             "",
-            "CSV (*.csv);;Excel (*.xlsx)"
+            "Excel files (*.xlsx)"
         )
-
         if not file_path:
             return
 
         try:
-            pass
-
-            QMessageBox.information(
-                self,
-                "Success",
-                "Data exported successfully"
+            saved_path = save_results(
+                project=self.project,
+                file_path=file_path
             )
+            QMessageBox.information(self, "Export", f"Results saved to:\n{saved_path}")
 
         except Exception as e:
-            QMessageBox.critical(self, "Export error", str(e))
+            QMessageBox.critical(self, "Export Error", str(e))
