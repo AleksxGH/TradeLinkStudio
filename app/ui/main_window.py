@@ -11,9 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-
 import pandas as pd
-
 from app.data.exporter import save_results
 from app.data.loader import read_data
 from app.core.project import Project
@@ -68,14 +66,14 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_label)
 
         # ---------- Сигналы ----------
-        self.load_button.clicked.connect(self.load_data)
+        self.load_button.clicked.connect(self.upload_data)
         self.calc_button.clicked.connect(self.calculate_indices)
         self.export_button.clicked.connect(self.export_data)
 
 
-    def load_data(self):
+    def upload_data(self):
 
-        print("DEBUG: load_data called")
+        print("DEBUG: upload_data called")
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -107,10 +105,6 @@ class MainWindow(QMainWindow):
                 matrix
             )
 
-            # показать матрицу сразу
-            import pandas as pd
-            from app.ui.dataframe_model import DataFrameModel
-
             df = pd.DataFrame(matrix, index=vertices, columns=vertices)
             model = DataFrameModel(df)
             self.table_view.setModel(model)
@@ -123,7 +117,7 @@ class MainWindow(QMainWindow):
                 f"Loaded: {file_path} | Vertices: {len(vertices)}"
             )
 
-            QMessageBox.information(self, "Success", "File loaded")
+            QMessageBox.information(self, "Success", "File was successfully uploaded")
 
         except Exception as e:
             print("DEBUG ERROR:", e)
@@ -145,7 +139,6 @@ class MainWindow(QMainWindow):
         self.export_button.setEnabled(True)
 
     def export_data(self):
-        """Экспорт результатов проекта в Excel через UI"""
         if not self.project.results:
             QMessageBox.warning(self, "Export", "No data to export!")
             return

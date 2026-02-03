@@ -1,13 +1,6 @@
 import pandas as pd
 
 def save_results(project, file_path: str):
-    """
-    Сохраняет результаты проекта в Excel, используя объект Project.
-
-    :param project: объект Project с полями df_original, results, quotas
-    :param file_path: путь для сохранения файла
-    :return: путь к сохраненному файлу
-    """
     if project.df_original is None or not project.results:
         raise ValueError("Project has no data or results to save!")
 

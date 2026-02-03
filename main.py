@@ -6,7 +6,7 @@ from app.ui.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("C:/Users/user/Desktop/TradeLinkStudio/resources/icons/app.ico"))
+    app.setWindowIcon(QIcon("/resources/icons/app.ico"))
 
     window = MainWindow()
     window.show()
