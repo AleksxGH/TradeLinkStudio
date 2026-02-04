@@ -33,5 +33,5 @@ def read_data(file_path):
 
     return df, vertices, subset_size, quotas, matrix
 
-def check_file(file_path):
+def check_file_format(file_path):
     pass

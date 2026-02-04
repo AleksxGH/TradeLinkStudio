@@ -2,31 +2,34 @@ import re
 import os
 
 class Project:
-
-    def __init__(self, title, folder):
+    def __init__(self, title=None, base_dir=None, create_dirs=False):
         self.title = title
-        self.base_dir = folder
-        self.project_dir = str(os.path.join(self.base_dir, title))
+        self.base_dir = base_dir
+        self.project_dir = str(os.path.join(self.base_dir, title)) if self.base_dir else None
+        self.data_dir = str(os.path.join(self.project_dir, "data")) if self.project_dir else None
+        self.export_dir = str(os.path.join(self.project_dir, "export")) if self.project_dir else None
         self.source_path = None
-        self.df_original = None  # исходный DataFrame для экспорта
         self.vertices = None
         self.subset_size = None
         self.quotas = None
         self.matrix = None
-        self.results = {}        # словарь индексов + долей для экспорта
+        self.indices = {}
+        self.shares = {}
+        self.original_df = None  # исходный DataFrame для экспорта
         self.results_df = None   # DataFrame для отображения в UI
 
-        os.makedirs(os.path.join(self.base_dir, title))
-        os.makedirs(os.path.join(self.project_dir, "data"))
-        os.makedirs(os.path.join(self.project_dir, "exports"))
+        if create_dirs:
+            os.makedirs(os.path.join(self.base_dir, title), exist_ok=True)
+            os.makedirs(os.path.join(self.project_dir, "data"), exist_ok=True)
+            os.makedirs(os.path.join(self.project_dir, "exports"), exist_ok=True)
 
-    def load(self, df_original, file_path, vertices, subset_size, quotas, matrix):
-        self.source_path = file_path
+    def load(self, df_original, source_path, vertices, subset_size, quotas, matrix):
+        self.source_path = source_path
         self.vertices = vertices
         self.subset_size = subset_size
         self.quotas = quotas
         self.matrix = matrix
-        self.df_original = df_original  # сохраняем копию исходного Excel
+        self.original_df = df_original
 
     def rename(self, new_name: str):
         """

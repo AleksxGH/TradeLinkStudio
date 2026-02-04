@@ -1,33 +1,39 @@
 import pandas as pd
 
 def save_results(project, file_path: str):
-    if project.df_original is None or not project.results:
-        raise ValueError("Project has no data or results to save!")
+    if project.results_df is None or project.results_df.empty:
+        raise ValueError("No results_df to export!")
 
-    df_out = project.df_original.copy()
-    n_rows = df_out.shape[0]
-    n_cols = df_out.shape[1]
+    df = project.results_df.copy()
+    n_cols = df.shape[1]
 
-    # Сохраняем вторую строку (квоты)
-    row2_backup = df_out.loc[1].copy()
+    # Первая колонка для индексов вершин
+    columns = [""] + list(df.columns)
 
-    # Добавляем новые пустые колонки справа
-    for i in range(len(project.results)):
-        df_out[n_cols + i] = [None] * n_rows
+    # Первая строка: количество вершин
+    row1 = pd.DataFrame([["Number of vertices", len(project.vertices)] + [""] * (n_cols - 1)],
+                        columns=columns)
 
-    # Заполняем новые колонки данными
-    col_idx = n_cols
-    for header, arr in project.results.items():
-        df_out.iat[2, col_idx] = header  # заголовок на третьей строке
-        for i, val in enumerate(arr):
-            df_out.iat[3 + i, col_idx] = val
-        col_idx += 1
+    # Вторая строка: subset size + quotas
+    quotas_str = [str(q) for q in project.quotas]
+    row2_values = [f"{project.title}", ""] + ["Subset size:", project.subset_size, "Quota values:"] + quotas_str
+    # Заполняем пустыми до нужного количества столбцов
+    while len(row2_values) < n_cols + 1:
+        row2_values.append("")
+    row2 = pd.DataFrame([row2_values], columns=columns)
 
-    # Восстанавливаем вторую строку с квотами
-    df_out.loc[1] = row2_backup
+    # Заголовки столбцов results_df
+    header_row = pd.DataFrame([columns], columns=columns)
+
+    # Данные results_df с индексом вершин
+    data_df = df.copy()
+    data_df.insert(0, "", df.index)
+
+    # Объединяем все
+    combined_df = pd.concat([row1, row2, header_row, data_df], ignore_index=True)
 
     if not file_path.endswith(".xlsx"):
         file_path += ".xlsx"
 
-    df_out.to_excel(file_path, index=False, header=False)
+    combined_df.to_excel(file_path, index=False, header=False)
     return file_path

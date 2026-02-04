@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QMessageBox
+    QApplication, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
@@ -31,7 +31,6 @@ class HomeWindow(QWidget):
 
         # Сделаем нерабочими пока кроме New Project
         self.create_template_btn.setEnabled(False)
-        self.open_btn.setEnabled(False)
         self.settings_btn.setEnabled(False)
         self.about_btn.setEnabled(False)
 
@@ -46,6 +45,7 @@ class HomeWindow(QWidget):
 
         # Подключаем сигнал для New Project
         self.new_btn.clicked.connect(self.new_project)
+        self.open_btn.clicked.connect(self.open_project)
 
     def new_project(self):
         dialog = NewProjectDialog(self)
@@ -55,3 +55,29 @@ class HomeWindow(QWidget):
             self.main_window = MainWindow(project)
             self.main_window.show()
             self.close()
+
+    def open_project(self):
+        base_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Open Project",
+            "",
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+
+        if not base_dir:
+            return
+
+        project = ProjectManager.load_project(base_dir)
+
+        if project is None:
+            QMessageBox.critical(
+                self,
+                "Open project error",
+                "Не удалось открыть проект.\n"
+                "Проверьте структуру папки проекта."
+            )
+            return
+
+        self.main_window = MainWindow(project)
+        self.main_window.show()
+        self.close()
