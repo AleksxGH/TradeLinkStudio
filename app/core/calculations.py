@@ -35,7 +35,7 @@ def analyze_critical_groups(values, quota, max_group_size):
                     if sum_without_j < quota_decimal:
                         num_pivotal_vertices += 1
 
-    return float(num_critical_groups), float(num_pivotal_vertices)
+    return num_critical_groups, num_pivotal_vertices
 
 
 def analyze_critical_groups_pi_prime(values, quota, max_group_size):

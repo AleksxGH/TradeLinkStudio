@@ -1,20 +1,27 @@
 import re
+import os
 
 class Project:
 
-    def __init__(self):
-        self.title = None
-        self.file_path = None
+    def __init__(self, title, folder):
+        self.title = title
+        self.base_dir = folder
+        self.project_dir = str(os.path.join(self.base_dir, title))
+        self.source_path = None
+        self.df_original = None  # исходный DataFrame для экспорта
         self.vertices = None
         self.subset_size = None
         self.quotas = None
         self.matrix = None
         self.results = {}        # словарь индексов + долей для экспорта
         self.results_df = None   # DataFrame для отображения в UI
-        self.df_original = None  # исходный DataFrame для экспорта
+
+        os.makedirs(os.path.join(self.base_dir, title))
+        os.makedirs(os.path.join(self.project_dir, "data"))
+        os.makedirs(os.path.join(self.project_dir, "exports"))
 
     def load(self, df_original, file_path, vertices, subset_size, quotas, matrix):
-        self.file_path = file_path
+        self.source_path = file_path
         self.vertices = vertices
         self.subset_size = subset_size
         self.quotas = quotas
