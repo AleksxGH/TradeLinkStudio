@@ -21,6 +21,7 @@ from app.ui.dataframe_model import DataFrameModel
 
 
 class MainWindow(QMainWindow):
+
     def __init__(self, current_project: Project):
         super().__init__()
 
@@ -40,15 +41,18 @@ class MainWindow(QMainWindow):
         # ---------- Панель кнопок ----------
         button_layout = QHBoxLayout()
 
+        self.home_button = QPushButton("Home")
         self.load_button = QPushButton("Load data")
         self.calc_button = QPushButton("Calculate indices")
         self.export_button = QPushButton("Export")
         self.save_button = QPushButton("Save project")
 
+        self.home_button.setEnabled(False)
         self.calc_button.setEnabled(False)
         self.export_button.setEnabled(False)
         self.save_button.setEnabled(False)
 
+        button_layout.addWidget(self.home_button)
         button_layout.addWidget(self.load_button)
         button_layout.addWidget(self.calc_button)
         button_layout.addWidget(self.export_button)
@@ -68,11 +72,14 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_label)
 
         # ---------- Сигналы ----------
+        # self.home_button.clicked.connect(self.to_home)
         self.load_button.clicked.connect(self.upload_data)
         self.calc_button.clicked.connect(self.calculate_indices)
         self.export_button.clicked.connect(self.export_data)
         self.save_button.clicked.connect(self.save_project)
 
+    # def to_home(self):
+    #     self.close()
 
     def upload_data(self):
 

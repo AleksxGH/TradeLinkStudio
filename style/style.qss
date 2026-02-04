@@ -1,0 +1,22 @@
+/* Основной фон для всего приложения */
+* {
+    background-color: #E6E9EF;
+    font-family: "Open Sans", sans-serif;
+}
+
+QPushButton {
+    font-family: "Open Sans", sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    background-color: #4682B4;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+}
+
+QPushButton:disabled {
+    background-color: #b0b0b0;  /* Светло-серый фон */
+    color: #7a7a7a;            /* Темно-серый текст */
+    border: 1px solid #cccccc; /* Серая граница */
+}
