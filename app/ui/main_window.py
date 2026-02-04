@@ -9,27 +9,28 @@ from PyQt5.QtWidgets import (
     QTableView,
     QLabel
 )
+import pandas as pd
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-import pandas as pd
 from app.data.exporter import save_results
 from app.data.loader import read_data
 from app.core.project import Project
 from app.services.index_service import calculate_all_indices
+from app.services.project_manager import ProjectManager
 from app.ui.dataframe_model import DataFrameModel
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+
+    def __init__(self, current_project: Project):
         super().__init__()
 
-        self.setWindowTitle("TradeLink Studio")
+        self.home_window = None
+        self.project = current_project
+        self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
         self.resize(1000, 600)
-        self.setWindowIcon(QIcon(
-            "C:/Users/user/Desktop/TradeLinkStudio/resources/icons/app.ico"
-        ))
+        self.setWindowIcon(QIcon("/resources/icons/app.ico"))
 
-        self.project = Project()
         self._init_ui()
 
     def _init_ui(self):
@@ -41,16 +42,21 @@ class MainWindow(QMainWindow):
         # ---------- Панель кнопок ----------
         button_layout = QHBoxLayout()
 
+        self.home_button = QPushButton("Home")
         self.load_button = QPushButton("Load data")
         self.calc_button = QPushButton("Calculate indices")
         self.export_button = QPushButton("Export")
+        self.save_button = QPushButton("Save project")
 
         self.calc_button.setEnabled(False)
         self.export_button.setEnabled(False)
+        self.save_button.setEnabled(False)
 
+        button_layout.addWidget(self.home_button)
         button_layout.addWidget(self.load_button)
         button_layout.addWidget(self.calc_button)
         button_layout.addWidget(self.export_button)
+        button_layout.addWidget(self.save_button)
         button_layout.addStretch()
 
         # ---------- Таблица ----------
@@ -66,10 +72,55 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_label)
 
         # ---------- Сигналы ----------
+        self.home_button.clicked.connect(self.to_home)
         self.load_button.clicked.connect(self.upload_data)
         self.calc_button.clicked.connect(self.calculate_indices)
         self.export_button.clicked.connect(self.export_data)
+        self.save_button.clicked.connect(self.save_project)
 
+        if self.project.matrix is not None and self.project.vertices is not None:
+            if self.project.results_df is not None:
+                print("[DEBUG] Загружаем таблицу с уже рассчитанными индексами")
+                model = DataFrameModel(self.project.results_df)
+                self.table_view.setModel(model)
+
+                self.table_view.resizeColumnsToContents()
+                self.table_view.resizeRowsToContents()
+                self.table_view.horizontalHeader().setStretchLastSection(True)
+
+                self.export_button.setEnabled(True)
+                self.calc_button.setEnabled(True)
+                self.save_button.setEnabled(True)
+            else:
+                print("[DEBUG] Загружаем таблицу с исходной матрицей")
+                self.create_dataframe(self.project)
+                self.calc_button.setEnabled(True)
+                self.save_button.setEnabled(True)
+
+    def to_home(self):
+        from app.ui.home_window import HomeWindow
+        if self.project.matrix is not None:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved project",
+                "Save project before leaving?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Cancel:
+                return
+            if reply == QMessageBox.Yes:
+                ProjectManager.save_project(self.project)
+
+        self.home_window = HomeWindow()
+        self.home_window.show()
+        self.close()
+
+    def create_dataframe(self, project: Project):
+        df = pd.DataFrame(project.matrix, index=project.vertices, columns=project.vertices)
+        model = DataFrameModel(df)
+        self.table_view.setModel(model)
 
     def upload_data(self):
 
@@ -105,12 +156,11 @@ class MainWindow(QMainWindow):
                 matrix
             )
 
-            df = pd.DataFrame(matrix, index=vertices, columns=vertices)
-            model = DataFrameModel(df)
-            self.table_view.setModel(model)
+            self.create_dataframe(self.project)
 
             # включаем кнопки
             self.calc_button.setEnabled(True)
+            self.save_button.setEnabled(True)
 
             # обновляем статус
             self.status_label.setText(
@@ -139,7 +189,7 @@ class MainWindow(QMainWindow):
         self.export_button.setEnabled(True)
 
     def export_data(self):
-        if not self.project.results:
+        if not self.project.indices or not self.project.shares or self.project.original_df is None:
             QMessageBox.warning(self, "Export", "No data to export!")
             return
 
@@ -161,3 +211,7 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Export Error", str(e))
+
+    def save_project(self):
+        ProjectManager.save_project(self.project)
+        QMessageBox.information(self, "Saving", f"Project {self.project.title} successfully saved")
