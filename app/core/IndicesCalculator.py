@@ -84,7 +84,7 @@ class IndicesCalculator:
                     print(f"[DEBUG] Processing vertex {vertex} (index {i})")
                     col = self.matrix[:, i]
                     influencers = np.nonzero(col)[0]
-                    values = [Decimal(str(col[j])) for j in influencers]  # decimal
+                    values = [Decimal(str(col[j])) for j in influencers]
                     quota = Decimal(str(self.quotas[i]))
                     print(f"[DEBUG] influencers count = {len(values)}, quota={quota}")
 
@@ -116,13 +116,11 @@ class IndicesCalculator:
     # ПЕРЕБОР КОАЛИЦИЙ
     # =========================
     def _analyze_all(self, values, quota):
-        getcontext().prec = 28
-
         n = len(values)
         max_size = min(self.subset_size, n)
-        num_groups = 0  # обычный int
-        pivotal_total = 0  # обычный int
-        pi_prime_sum = 0  # обычный int
+        num_groups = 0
+        pivotal_total = 0
+        pi_prime_sum = 0
 
         quota_decimal = Decimal(str(quota))
 
@@ -193,5 +191,3 @@ class IndicesCalculator:
             return np.zeros_like(indices)
         shares = indices / indices_sum
         return shares
-
-
