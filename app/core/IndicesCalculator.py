@@ -68,46 +68,40 @@ class IndicesCalculator:
             self.pi_prime.clear()
             self.copeland.clear()
 
-            # ---------- Copeland ----------
+
             try:
-                print("[DEBUG] Calculating Copeland")
-                copeland_values = np.sum(self.matrix, axis=0).astype(np.float64)
+                copeland_values = np.sum(self.matrix, axis=0)
                 for v, val in zip(self.vertices, copeland_values):
-                    self.copeland[v] = float(val)
-                print("[DEBUG] Copeland done")
+                    self.copeland[v] = val
             except Exception as e:
                 print(f"[ERROR] Copeland calculation failed: {e}")
 
-            # ---------- Остальные индексы ----------
             for i, vertex in enumerate(self.vertices):
                 try:
-                    print(f"[DEBUG] Processing vertex {vertex} (index {i})")
                     col = self.matrix[:, i]
                     influencers = np.nonzero(col)[0]
                     values = [Decimal(str(col[j])) for j in influencers]
                     quota = Decimal(str(self.quotas[i]))
-                    print(f"[DEBUG] influencers count = {len(values)}, quota={quota}")
 
                     if len(values) == 0:
-                        self.bundle[vertex] = 0.0
-                        self.pivotal[vertex] = 0.0
-                        self.pi_prime[vertex] = 0.0
+                        self.bundle[vertex] = 0
+                        self.pivotal[vertex] = 0
+                        self.pi_prime[vertex] = 0
                         continue
 
                     b, p, pp = self._analyze_all(values, quota)
 
-                    self.bundle[vertex] = float(b)
-                    self.pivotal[vertex] = float(p)
-                    self.pi_prime[vertex] = float(pp)
+                    self.bundle[vertex] = b
+                    self.pivotal[vertex] = p
+                    self.pi_prime[vertex] = pp
 
                 except Exception as e:
                     print(f"[ERROR] Processing vertex {vertex} failed: {e}")
-                    self.bundle[vertex] = 0.0
-                    self.pivotal[vertex] = 0.0
-                    self.pi_prime[vertex] = 0.0
+                    self.bundle[vertex] = 0
+                    self.pivotal[vertex] = 0
+                    self.pi_prime[vertex] = 0
 
             self._computed = True
-            print("[DEBUG] ===== FINISHED compute_all =====")
         except Exception as e:
             print(f"[ERROR] compute_all failed: {e}")
             self._computed = False
@@ -129,13 +123,11 @@ class IndicesCalculator:
         try:
             for s in range(1, max_size + 1):
                 for group in combinations(range(n), s):
-                    # Сумма группы как Decimal
-                    group_sum = sum(Decimal(str(values[idx])) for idx in group)
+                    group_sum = np.sum(Decimal(str(values[idx])) for idx in group)
 
                     if group_sum >= quota_decimal:
                         num_groups += 1
 
-                        # считаем пивотные вершины
                         pivotal_count = 0
                         for idx in group:
                             sum_without_j = group_sum - Decimal(str(values[idx]))
@@ -148,8 +140,6 @@ class IndicesCalculator:
         except Exception as e:
             print(f"[ERROR] _analyze_all failed: {e}")
 
-        print(
-            f"[DEBUG] _analyze_all result: num_groups={num_groups}, pivotal_total={pivotal_total}, pi_prime_sum={pi_prime_sum}")
         return num_groups, pivotal_total, pi_prime_sum
 
     # =========================
