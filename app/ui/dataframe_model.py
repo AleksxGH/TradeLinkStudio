@@ -33,12 +33,3 @@ class DataFrameModel(QAbstractTableModel):
             return f"{f:.5f}".rstrip("0").rstrip(".")
 
         return None
-
-    def headerData(self, section, orientation, role):
-        if role != Qt.DisplayRole:
-            return None
-
-        if orientation == Qt.Horizontal:
-            return str(self._df.columns[section])
-        else:
-            return str(self._df.index[section])

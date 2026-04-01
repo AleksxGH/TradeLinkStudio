@@ -1,3 +1,4 @@
+import networkx as nx
 import pandas as pd
 import numpy as np
 
@@ -5,8 +6,9 @@ def build_result_table(project):
     vertices = project.vertices
     subset_size = project.subset_size
 
+    adj_matrix = nx.to_numpy_array(project.graph, nodelist=vertices)
     matrix_df = pd.DataFrame(
-        project.matrix,
+        adj_matrix,
         index=vertices,
         columns=vertices
     )

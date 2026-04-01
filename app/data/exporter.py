@@ -15,7 +15,7 @@ def save_results(project, file_path: str):
                         columns=columns)
 
     # Вторая строка: subset size + quotas
-    quotas_values = [float(q) for q in project.quotas]
+    quotas_values = [float(q) for v, q in project.quotas.items()]
     row2_values = [f"{project.title}", ""] + ["Subset size:", project.subset_size, "Quota values:"] + quotas_values
     # Заполняем пустыми до нужного количества столбцов
     while len(row2_values) < n_cols + 1:

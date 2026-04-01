@@ -28,7 +28,7 @@ class ProjectManager:
                 "subset_size": project.subset_size,
                 "quotas": project.quotas,
                 "vertices": project.vertices,
-                "matrix": project.matrix,
+                "matrix": project.graph,
                 "indices": project.indices,
                 "shares": project.shares,
             }
@@ -55,7 +55,6 @@ class ProjectManager:
             if not os.path.isdir(data_dir):
                 raise FileNotFoundError("Папка data не найдена")
 
-            # Ищем json-файл проекта
             json_files = [f for f in os.listdir(data_dir) if f.endswith(".json")]
             if not json_files:
                 raise FileNotFoundError("Файл проекта (.json) не найден")
@@ -70,7 +69,6 @@ class ProjectManager:
             # Создаем объект Project без создания папок
             project = Project(title=None, base_dir=None, create_dirs=False)
 
-            # Восстанавливаем простые поля
             project.title = project_data.get("title")
             project.base_dir = project_data.get("base_dir")
             project.project_dir = project_data.get("project_dir")
@@ -81,16 +79,16 @@ class ProjectManager:
             project.vertices = project_data.get("vertices")
             project.indices = project_data.get("indices")
             project.shares = project_data.get("shares")
-            project.matrix = project_data.get("matrix")
+            project.graph = project_data.get("matrix")
             project.quotas = project_data.get("quotas")
-            print(f"[DEBUG] matrix shape: {None if project.matrix is None else project.matrix.shape}")
+            print(f"[DEBUG] matrix shape: {None if project.graph is None else project.graph.shape}")
             print(f"[DEBUG] quotas shape: {None if project.quotas is None else project.quotas.shape}")
 
             # Восстанавливаем df_original
             project.original_df = None
-            if project.matrix is not None and project.vertices is not None:
+            if project.graph is not None and project.vertices is not None:
                 project.original_df = pd.DataFrame(
-                    project.matrix,
+                    project.graph,
                     index=project.vertices,
                     columns=project.vertices
                 )

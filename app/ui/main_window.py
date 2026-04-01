@@ -1,3 +1,4 @@
+import networkx as nx
 from PyQt5.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -78,7 +79,7 @@ class MainWindow(QMainWindow):
         self.export_button.clicked.connect(self.export_data)
         self.save_button.clicked.connect(self.save_project)
 
-        if self.project.matrix is not None and self.project.vertices is not None:
+        if self.project.graph is not None and self.project.vertices is not None:
             if self.project.results_df is not None:
                 print("[DEBUG] Загружаем таблицу с уже рассчитанными индексами")
                 model = DataFrameModel(self.project.results_df)
@@ -99,7 +100,7 @@ class MainWindow(QMainWindow):
 
     def to_home(self):
         from app.ui.home_window import HomeWindow
-        if self.project.matrix is not None:
+        if self.project.graph is not None:
             reply = QMessageBox.question(
                 self,
                 "Unsaved project",
@@ -118,7 +119,21 @@ class MainWindow(QMainWindow):
         self.close()
 
     def create_dataframe(self, project: Project):
-        df = pd.DataFrame(project.matrix, index=project.vertices, columns=project.vertices)
+        """Создает DataFrame из графа для отображения в таблице"""
+        if not project.vertices:
+            df = pd.DataFrame()
+        else:
+            adj_matrix = nx.to_numpy_array(
+                project.graph,
+                nodelist=project.vertices,
+            )
+
+            df = pd.DataFrame(
+                adj_matrix,
+                index=project.vertices,
+                columns=project.vertices
+            )
+
         model = DataFrameModel(df)
         self.table_view.setModel(model)
 
@@ -140,12 +155,7 @@ class MainWindow(QMainWindow):
         print("DEBUG: Selected file:", file_path)
 
         try:
-            df, vertices, subset_size, quotas, matrix = read_data(file_path)
-
-            print("DEBUG: File parsed successfully")
-            print("Vertices:", len(vertices))
-            print("Subset size:", subset_size)
-            print("Matrix shape:", matrix.shape)
+            df, vertices, subset_size, quotas, graph = read_data(file_path)
 
             self.project.load(
                 df,
@@ -153,7 +163,7 @@ class MainWindow(QMainWindow):
                 vertices,
                 subset_size,
                 quotas,
-                matrix
+                graph
             )
 
             self.create_dataframe(self.project)
@@ -174,7 +184,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
 
     def calculate_indices(self):
-        if self.project.matrix is None:
+        if self.project.graph is None:
             return
 
         calculate_all_indices(self.project)

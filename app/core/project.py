@@ -12,7 +12,7 @@ class Project:
         self.vertices = None
         self.subset_size = None
         self.quotas = None
-        self.matrix = None
+        self.graph = None
         self.indices = {}
         self.shares = {}
         self.original_df = None  # исходный DataFrame для экспорта
@@ -23,20 +23,15 @@ class Project:
             os.makedirs(os.path.join(self.project_dir, "data"), exist_ok=True)
             os.makedirs(os.path.join(self.project_dir, "exports"), exist_ok=True)
 
-    def load(self, df_original, source_path, vertices, subset_size, quotas, matrix):
+    def load(self, df_original, source_path, vertices, subset_size, quotas, graph):
         self.source_path = source_path
         self.vertices = vertices
         self.subset_size = subset_size
         self.quotas = quotas
-        self.matrix = matrix
+        self.graph = graph
         self.original_df = df_original
 
     def rename(self, new_name: str):
-        """
-        Переименовывает проект с проверкой допустимых символов.
-        Допустимы: буквы, цифры, пробел, _ и -.
-        Ограничение длины: 1–100 символов.
-        """
         if not new_name:
             raise ValueError("Project name cannot be empty.")
 
