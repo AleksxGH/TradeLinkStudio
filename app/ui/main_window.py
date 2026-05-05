@@ -23,8 +23,9 @@ from app.ui.dataframe_model import DataFrameModel
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, current_project: Project):
+    def __init__(self,current_project: Project, parent=None,):
         super().__init__()
+        self.parent_window = parent
 
         self.home_window = None
         self.project = current_project
@@ -114,8 +115,7 @@ class MainWindow(QMainWindow):
             if reply == QMessageBox.Yes:
                 ProjectManager.save_project(self.project)
 
-        self.home_window = HomeWindow()
-        self.home_window.show()
+        self.parent_window.show()
         self.close()
 
     def create_dataframe(self, project: Project):

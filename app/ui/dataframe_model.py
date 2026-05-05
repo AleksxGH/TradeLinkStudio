@@ -29,7 +29,7 @@ class DataFrameModel(QAbstractTableModel):
 
             if f.is_integer():
                 return str(int(f))
-            # Округляем до 5 значащих цифр после запятой, убираем лишние нули
-            return f"{f:.5f}".rstrip("0").rstrip(".")
+            # Округляем до 7 значащих цифр после запятой, убираем лишние нули
+            return f"{f:.7f}".rstrip("0").rstrip(".")
 
         return None

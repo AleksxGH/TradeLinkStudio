@@ -1,5 +1,6 @@
 import networkx as nx
 from itertools import combinations
+import numpy as np
 
 class IndicesCalculator:
     def __init__(self, graph, vertices, quotas, subset_size):
@@ -75,23 +76,29 @@ class IndicesCalculator:
 
         for node in G.nodes():
             in_edges = list(G.in_edges(node, data='weight', default=1))
+
             m = len(in_edges)
+
+            quota = self.quotas.get(node, 0)
 
             if m == 0:
                 continue
 
             max_group_size = min(self.subset_size, m)
+
             for group_size in range(1, max_group_size + 1):
                 for edge_group in combinations(in_edges, group_size):
                     total_weight = sum(w for _, _, w in edge_group)
 
-                    if total_weight < self.quotas.get(node, 0):
+                    if total_weight < quota:
                         continue
 
-                    for _, u, w in edge_group:
-                        if (total_weight - w) < self.quotas.get(node, 0):
-                            increment = group_size if weighted_version else 1
-                            pivotal_counts[u] += increment
+                    for _, _, w in edge_group:
+                        if total_weight - w < quota:
+                            if weighted_version:
+                                pivotal_counts[node] += group_size
+                            else:
+                                pivotal_counts[node] += 1
 
         return pivotal_counts
 
@@ -101,6 +108,9 @@ class IndicesCalculator:
             self.pivotal.clear()
             self.pi_prime.clear()
             self.copeland.clear()
+
+            matrix = nx.to_numpy_array(self.graph, nodelist=self.vertices)
+            print(matrix)
 
             self.copeland = self.copeland_index()
             self.bundle = self.bundle_index()

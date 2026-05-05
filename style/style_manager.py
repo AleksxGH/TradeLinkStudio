@@ -1,8 +1,5 @@
-import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
 from PyQt5.QtCore import QFile, QTextStream
-
 
 def load_styles(app, style_path="style/style.qss"):
     """Загружает стили из указанного пути"""
