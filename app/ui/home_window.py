@@ -73,7 +73,7 @@ class HomeWindow(QWidget):
         base_dir = QFileDialog.getExistingDirectory(
             self,
             "Open Project",
-            "",
+            self.paths.projects_dir,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
         )
 

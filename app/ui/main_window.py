@@ -25,7 +25,6 @@ from app.core.engine import ComputeEngine
 from app.services.config_manager import ConfigManager
 from app.services.data_controller import DataController
 from app.services.project_manager import ProjectManager
-from app.services.undo_redu_manager import UndoRedoManager
 from app.ui.dataframe_model import DataFrameModel
 from app.core.datastore import DataStore
 
@@ -50,12 +49,9 @@ class MainWindow(QMainWindow):
             ComputeEngine(),
             self.config
         )
-
-        self.undo_manager = UndoRedoManager(self.datastore)
         
         # Флаг для отслеживания изменений
         self.is_dirty = False
-        self.current_state_for_editing = None
 
         self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
         self.resize(1400, 800)
@@ -217,6 +213,12 @@ class MainWindow(QMainWindow):
 
     def to_home(self):
 
+        if not self.is_dirty and not self.project.is_dirty:
+
+            self.parent_window.show()
+            self.close()
+            return
+
         reply = QMessageBox.question(
             self,
             "Unsaved project",
@@ -247,13 +249,14 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            df, vertices, subset_size, quotas, graph = read_data(file_path)
+            _df, vertices, subset_size, quotas, graph = read_data(file_path)
 
             self.controller.set_state(
                 matrix=graph,
                 vertices=vertices,
                 quotas=quotas,
-                subset_size=subset_size
+                subset_size=subset_size,
+                project_title=self.project.title
             )
 
             self._show_quotas(quotas, vertices)
@@ -298,7 +301,7 @@ class MainWindow(QMainWindow):
             # Обновляем квоты (берём из первой строки)
             quotas = {}
             for col in quotas_df.columns:
-                quotas[col] = quotas_df.iloc[0][col]
+                quotas[col] = quotas_df.at[0, col]
             
             # Обновляем матрицу в граф
             import networkx as nx
@@ -310,7 +313,7 @@ class MainWindow(QMainWindow):
             
             for i, source in enumerate(vertices):
                 for j, target in enumerate(vertices):
-                    weight = matrix_df.iloc[i][j]
+                    weight = matrix_df.iat[i, j]
                     if weight != 0:
                         graph.add_edge(source, target, weight=weight)
             
@@ -319,7 +322,8 @@ class MainWindow(QMainWindow):
                 "quotas": quotas,
                 "matrix": graph,
                 "subset_size": self.subset_spinbox.value(),
-                "vertices": vertices
+                "vertices": vertices,
+                "project_title": self.project.title
             }
             
             # Добавляем в историю
@@ -366,6 +370,16 @@ class MainWindow(QMainWindow):
 
             df = pd.DataFrame(final_data, index=vertices)
 
+            self.project.results_df = df
+            self.project.vertices = vertices
+            self.project.quotas = quotas
+            self.project.subset_size = subset_size
+            self.project.computed = True
+
+            current_state = self.datastore.current()
+            if current_state is not None:
+                current_state["indices"] = df.to_dict(orient="split")
+
             # Используем нередактируемую модель для результатов
             self.indices_table.setModel(DataFrameModel(df, editable=False))
             self.indices_table.resizeColumnsToContents()
@@ -373,6 +387,7 @@ class MainWindow(QMainWindow):
             
             # Сброс флага грязных данных
             self.is_dirty = False
+            self.project.is_dirty = True
             self._update_calc_button()
             self._update_undo_redo_buttons()
 
@@ -382,12 +397,30 @@ class MainWindow(QMainWindow):
     def _on_subset_size_changed(self, value):
         """Отмечает данные как грязные при изменении subset_size"""
         self.is_dirty = True
+        self.project.is_dirty = True
+        self.project.computed = False
+        self.project.results_df = None
+        self.export_button.setEnabled(False)
+        self._sync_current_state_from_ui()
+        current_state = self.datastore.current()
+        if current_state is not None:
+            self.datastore.push(current_state)
         self._update_calc_button()
+        self._update_undo_redo_buttons()
 
     def _mark_data_dirty(self):
         """Отмечает данные как грязные и обновляет статус кнопки"""
         self.is_dirty = True
+        self.project.is_dirty = True
+        self.project.computed = False
+        self.project.results_df = None
+        self.export_button.setEnabled(False)
+        self._sync_current_state_from_ui()
+        current_state = self.datastore.current()
+        if current_state is not None:
+            self.datastore.push(current_state)
         self._update_calc_button()
+        self._update_undo_redo_buttons()
 
     def _update_calc_button(self):
         """Обновляет статус кнопки Calculate в зависимости от is_dirty"""
@@ -407,20 +440,7 @@ class MainWindow(QMainWindow):
         
         state = self.datastore.current()
         if state:
-            quotas = state.get("quotas", {})
-            vertices = state.get("vertices", [])
-            matrix = state.get("matrix")
-            subset_size = state.get("subset_size", 0)
-            
-            self._show_quotas(quotas, vertices)
-            self._show_matrix(matrix, vertices)
-            self.subset_spinbox.blockSignals(True)
-            self.subset_spinbox.setValue(subset_size)
-            self.subset_spinbox.blockSignals(False)
-            
-            # Очищаем таблицу результатов
-            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
-            self.export_button.setEnabled(False)
+            self._apply_state_to_ui(state)
         
         self._update_undo_redo_buttons()
         self.is_dirty = True
@@ -435,20 +455,7 @@ class MainWindow(QMainWindow):
         
         state = self.datastore.current()
         if state:
-            quotas = state.get("quotas", {})
-            vertices = state.get("vertices", [])
-            matrix = state.get("matrix")
-            subset_size = state.get("subset_size", 0)
-            
-            self._show_quotas(quotas, vertices)
-            self._show_matrix(matrix, vertices)
-            self.subset_spinbox.blockSignals(True)
-            self.subset_spinbox.setValue(subset_size)
-            self.subset_spinbox.blockSignals(False)
-            
-            # Очищаем таблицу результатов
-            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
-            self.export_button.setEnabled(False)
+            self._apply_state_to_ui(state)
         
         self._update_undo_redo_buttons()
         self.is_dirty = True
@@ -460,6 +467,17 @@ class MainWindow(QMainWindow):
 
 
     def export_data(self):
+
+        self._sync_current_state_from_ui()
+
+        current_state = self.datastore.current()
+        if current_state is not None and self.indices_table.model() is not None:
+            indices_model = self.indices_table.model()
+            if hasattr(indices_model, "get_dataframe"):
+                self.project.results_df = indices_model.get_dataframe()
+                self.project.vertices = current_state.get("vertices", [])
+                self.project.quotas = current_state.get("quotas", {})
+                self.project.subset_size = current_state.get("subset_size", self.subset_spinbox.value())
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -474,7 +492,8 @@ class MainWindow(QMainWindow):
         try:
             save_results(
                 project=self.project,
-                file_path=file_path
+                file_path=file_path,
+                matrix=current_state.get("matrix") if current_state is not None else None
             )
 
             QMessageBox.information(
@@ -488,16 +507,24 @@ class MainWindow(QMainWindow):
 
     def save_project(self):
 
-        ProjectManager.save_project(
-            self.project,
-            self.datastore
-        )
+        try:
+            self._sync_current_state_from_ui()
 
-        QMessageBox.information(
-            self,
-            "Saving",
-            f"Project {self.project.title} saved"
-        )
+            ProjectManager.save_project(
+                self.project,
+                self.datastore
+            )
+
+            self.is_dirty = False
+            self.project.is_dirty = False
+
+            QMessageBox.information(
+                self,
+                "Saving",
+                f"Project {self.project.title} saved"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Saving Error", str(e))
 
     def _show_quotas(self, quotas, vertices):
         """Отображает квоты вершин (редактируемая таблица)"""
@@ -517,7 +544,6 @@ class MainWindow(QMainWindow):
     def _show_matrix(self, matrix, vertices):
         """Отображает матрицу входных данных (редактируемая таблица)"""
         import networkx as nx
-        import numpy as np
 
         if isinstance(matrix, nx.DiGraph):
             matrix_array = nx.to_numpy_array(matrix, nodelist=vertices)
@@ -534,26 +560,130 @@ class MainWindow(QMainWindow):
         self.matrix_table.setModel(self.matrix_model)
         self.matrix_table.resizeColumnsToContents()
 
+    def _show_indices(self, indices_data):
+        """Отображает вычисленные индексы, если они есть"""
+        if not indices_data:
+            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
+            self.export_button.setEnabled(False)
+            self.project.results_df = None
+            self.project.vertices = []
+            self.project.quotas = {}
+            self.project.subset_size = 0
+            self.project.computed = False
+            return
+
+        try:
+            df = pd.DataFrame(
+                indices_data.get("data", []),
+                index=indices_data.get("index", []),
+                columns=indices_data.get("columns", [])
+            )
+        except Exception:
+            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
+            self.export_button.setEnabled(False)
+            return
+
+        self.indices_table.setModel(DataFrameModel(df, editable=False))
+        self.indices_table.resizeColumnsToContents()
+        self.export_button.setEnabled(not df.empty)
+        self.project.results_df = df
+        self.project.vertices = list(df.index)
+        self.project.computed = not df.empty
+
+        current_state = self.datastore.current()
+        if current_state is not None:
+            self.project.quotas = current_state.get("quotas", {})
+            self.project.subset_size = current_state.get("subset_size", 0)
+
+    def _apply_state_to_ui(self, state):
+        """Синхронизирует интерфейс с сохраненным состоянием"""
+        if not state:
+            return
+
+        project_title = state.get("project_title")
+        if project_title:
+            if project_title != self.project.title:
+                try:
+                    ProjectManager.rename_project_directory(self.project, project_title)
+                except (FileExistsError, ValueError):
+                    self.project.title = project_title
+
+            self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
+            self.project.title = project_title
+
+        quotas = state.get("quotas", {})
+        vertices = state.get("vertices", [])
+        matrix = state.get("matrix")
+        subset_size = state.get("subset_size", 0)
+
+        self._show_quotas(quotas, vertices)
+        self._show_matrix(matrix, vertices)
+        self._show_indices(state.get("indices"))
+
+        self.project.quotas = quotas
+        self.project.vertices = vertices
+        self.project.subset_size = subset_size
+        self.project.computed = bool(state.get("indices"))
+        if self.project.results_df is None and state.get("indices"):
+            try:
+                self.project.results_df = pd.DataFrame(
+                    state["indices"].get("data", []),
+                    index=state["indices"].get("index", []),
+                    columns=state["indices"].get("columns", [])
+                )
+            except Exception:
+                self.project.results_df = None
+
+        self.subset_spinbox.blockSignals(True)
+        self.subset_spinbox.setMaximum(max(len(vertices), 1))
+        self.subset_spinbox.setValue(min(subset_size, max(len(vertices), 1)))
+        self.subset_spinbox.blockSignals(False)
+
+    def _sync_current_state_from_ui(self):
+        """Обновляет текущий snapshot в datastore перед сохранением"""
+        state = self.datastore.current()
+        if state is None:
+            return
+
+        quotas_df = self.quotas_model.get_dataframe()
+        matrix_df = self.matrix_model.get_dataframe()
+        vertices = list(matrix_df.index)
+
+        import networkx as nx
+        graph = nx.DiGraph()
+        for vertex in vertices:
+            graph.add_node(vertex)
+
+        for i, source in enumerate(vertices):
+            for j, target in enumerate(vertices):
+                weight = matrix_df.iat[i, j]
+                if weight != 0:
+                    graph.add_edge(source, target, weight=weight)
+
+        state["matrix"] = graph
+        state["vertices"] = vertices
+        state["quotas"] = {col: quotas_df.at[0, col] for col in quotas_df.columns}
+        state["subset_size"] = self.subset_spinbox.value()
+        state["project_title"] = self.project.title
+
+        if self.is_dirty:
+            state.pop("indices", None)
+        elif self.indices_table.model() is not None:
+            indices_model = self.indices_table.model()
+            if hasattr(indices_model, "get_dataframe"):
+                indices_df = indices_model.get_dataframe()
+                state["indices"] = indices_df.to_dict(orient="split")
+
     def _initialize_empty_tables(self):
         """Инициализирует пустые таблицы для нового проекта"""
         # Проверяем, есть ли уже данные в datastore
         current_state = self.datastore.current()
         if current_state is not None:
             # Данные уже загружены, отображаем их
+            self._apply_state_to_ui(current_state)
+
             vertices = current_state.get("vertices", [])
-            matrix = current_state.get("matrix")
-            quotas = current_state.get("quotas", {})
-            subset_size = current_state.get("subset_size", 2)
-            
-            self._show_quotas(quotas, vertices)
-            self._show_matrix(matrix, vertices)
-            
-            self.subset_spinbox.setEnabled(True)
-            self.subset_spinbox.setMaximum(len(vertices))
-            self.subset_spinbox.blockSignals(True)
-            self.subset_spinbox.setValue(subset_size)
-            self.subset_spinbox.blockSignals(False)
-            
+
             self.status_label.setText(f"Loaded project | Vertices: {len(vertices)}")
             self.save_button.setEnabled(True)
             self.is_dirty = False
@@ -562,7 +692,6 @@ class MainWindow(QMainWindow):
         
         # Создаём пустую матрицу 3x3
         vertices = ["V1", "V2", "V3"]
-        matrix_data = {v: {vv: 0 for vv in vertices} for v in vertices}
         quotas_data = {v: 0 for v in vertices}
         
         # Инициализируем datastore с пустым состоянием
@@ -575,7 +704,8 @@ class MainWindow(QMainWindow):
             matrix=graph,
             vertices=vertices,
             quotas=quotas_data,
-            subset_size=2
+            subset_size=2,
+            project_title=self.project.title
         )
         
         # Отображаем таблицы
@@ -628,7 +758,7 @@ class MainWindow(QMainWindow):
         # Обновляем квоты
         quotas_df = self.quotas_model.get_dataframe()
         quotas_df[new_vertex] = 0
-        quotas = {col: quotas_df.iloc[0][col] for col in quotas_df.columns}
+        quotas = {col: quotas_df.at[0, col] for col in quotas_df.columns}
         
         # Создаём граф с новой вершиной
         import networkx as nx
@@ -638,7 +768,7 @@ class MainWindow(QMainWindow):
         
         for i, source in enumerate(vertices_updated):
             for j, target in enumerate(vertices_updated):
-                weight = current_df.iloc[i][j]
+                weight = current_df.iat[i, j]
                 if weight != 0:
                     graph.add_edge(source, target, weight=weight)
         
@@ -647,7 +777,8 @@ class MainWindow(QMainWindow):
             matrix=graph,
             vertices=vertices_updated,
             quotas=quotas,
-            subset_size=self.subset_spinbox.value()
+            subset_size=self.subset_spinbox.value(),
+            project_title=self.project.title
         )
         
         # Обновляем UI
@@ -683,7 +814,7 @@ class MainWindow(QMainWindow):
         # Обновляем квоты
         quotas_df = self.quotas_model.get_dataframe()
         quotas_df = quotas_df.drop(last_vertex, axis=1)
-        quotas = {col: quotas_df.iloc[0][col] for col in quotas_df.columns}
+        quotas = {col: quotas_df.at[0, col] for col in quotas_df.columns}
         
         # Создаём граф с удалённой вершиной
         import networkx as nx
@@ -693,7 +824,7 @@ class MainWindow(QMainWindow):
         
         for i, source in enumerate(vertices_updated):
             for j, target in enumerate(vertices_updated):
-                weight = current_df.iloc[i][j]
+                weight = current_df.iat[i, j]
                 if weight != 0:
                     graph.add_edge(source, target, weight=weight)
         
@@ -706,7 +837,8 @@ class MainWindow(QMainWindow):
             matrix=graph,
             vertices=vertices_updated,
             quotas=quotas,
-            subset_size=subset_value
+            subset_size=subset_value,
+            project_title=self.project.title
         )
         
         # Обновляем UI
@@ -800,7 +932,7 @@ class MainWindow(QMainWindow):
                 graph = nx.relabel_nodes(graph, mapping)
             
             # Обновляем квоты
-            quotas = {col: quotas_df.iloc[0][col] for col in quotas_df.columns}
+            quotas = {col: quotas_df.at[0, col] for col in quotas_df.columns}
             new_vertices = list(matrix_df.index)
             
             # Сохраняем изменения через controller
@@ -808,7 +940,8 @@ class MainWindow(QMainWindow):
                 matrix=graph,
                 vertices=new_vertices,
                 quotas=quotas,
-                subset_size=state.get("subset_size", 2)
+                subset_size=state.get("subset_size", 2),
+                project_title=self.project.title
             )
             
             # Обновляем UI
@@ -828,7 +961,31 @@ class MainWindow(QMainWindow):
         )
         
         if ok and new_name.strip():
-            self.project.title = new_name.strip()
+            new_name = new_name.strip()
+
+            try:
+                ProjectManager.rename_project_directory(self.project, new_name)
+            except FileExistsError:
+                QMessageBox.warning(
+                    self,
+                    "Rename Project",
+                    "A project folder with this name already exists"
+                )
+                return
+            except ValueError as exc:
+                QMessageBox.warning(
+                    self,
+                    "Rename Project",
+                    str(exc)
+                )
+                return
+
+            state = self.datastore.current() or {}
+            state["project_title"] = self.project.title
+            self.datastore.push(state)
+
             self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
             self.project.is_dirty = True
             self.save_button.setEnabled(True)
+            self.status_label.setText(f"Project renamed to {self.project.title}")
+            self._update_undo_redo_buttons()
