@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QMessageBox, QFil
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from app.services.config_manager import ConfigManager
-from app.services.paths import AppPaths
+from app.services.app_paths import AppPaths
 from app.services.project_manager import ProjectManager
 from app.ui.about_window import AboutWindow
 from app.ui.main_window import MainWindow
@@ -60,7 +60,7 @@ class HomeWindow(QWidget):
         dialog = NewProjectDialog(self)
 
         if dialog.exec_():
-            project = ProjectManager.create_project(
+            project = ProjectManager.create_custom_project(
                 dialog.project_name,
                 dialog.project_dir
             )
@@ -80,9 +80,9 @@ class HomeWindow(QWidget):
         if not base_dir:
             return
 
-        project = ProjectManager.load_project(base_dir)
+        result = ProjectManager.load_project(base_dir)
 
-        if project is None:
+        if result is None:
             QMessageBox.critical(
                 self,
                 "Open project error",
@@ -91,7 +91,8 @@ class HomeWindow(QWidget):
             )
             return
 
-        self.main_window = MainWindow(project, self)
+        project, datastore = result
+        self.main_window = MainWindow(project, self, datastore)
         self.main_window.show()
         self.close()
 

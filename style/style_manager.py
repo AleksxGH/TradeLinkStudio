@@ -10,8 +10,8 @@ def load_styles(app, style_path="style/style.qss"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         style_path = os.path.join(base_dir, style_path)
 
-    print(f"Ищу файл стилей: {style_path}")
-    print(f"Существует ли файл: {os.path.exists(style_path)}")
+    # print(f"Ищу файл стилей: {style_path}")
+    # print(f"Существует ли файл: {os.path.exists(style_path)}")
 
     # Проверяем существование файла
     if not os.path.exists(style_path):
@@ -44,7 +44,7 @@ def load_styles(app, style_path="style/style.qss"):
 
         # Применяем стили
         app.setStyleSheet(stylesheet)
-        print(f"Стили загружены из {style_path}")
+        # print(f"Стили загружены из {style_path}")
         return True
 
     except Exception as e:

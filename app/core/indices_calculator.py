@@ -32,6 +32,7 @@ class IndicesCalculator:
         self._invalidate()
 
     def copeland_index(self):
+        """Copeland Index: сумма весов входящих рёбер для каждой вершины"""
         copeland = {}
         for node in self.vertices:
             total_weight = sum(
@@ -49,9 +50,9 @@ class IndicesCalculator:
             return self.graph.to_directed()
 
     def bundle_index(self):
+        """Bundle Index: количество критических групп входящих соседей размером <= k"""
         G = self._ensure_directed()
-
-        centrality = {node: 0 for node in G.nodes()}
+        bundle = {node: 0 for node in G.nodes()}
 
         for node in G.nodes():
             in_edges = list(G.in_edges(node, data='weight', default=1))
@@ -60,47 +61,66 @@ class IndicesCalculator:
             if m == 0:
                 continue
 
+            quota = self.quotas.get(node, 0)
             max_group_size = min(self.subset_size, m)
+
+            # Перебираем все возможные группы размером от 1 до max_group_size
             for group_size in range(1, max_group_size + 1):
                 for edge_group in combinations(in_edges, group_size):
                     total_weight = sum(weight for _, _, weight in edge_group)
-                    if total_weight >= self.quotas.get(node, 0):
-                        centrality[node] += 1
+                    # Если группа критична (вес >= квота), добавляем 1
+                    if total_weight >= quota:
+                        bundle[node] += 1
 
-        return centrality
+        return bundle
 
-    def pivotal_index(self, weighted_version=True):
+    def pivotal_index(self, weighted_version=False):
+        """
+        Pivotal Index: количество pivotal-узлов (узлов, чьё участие критично)
+        
+        Узел v в группе S считается pivotal, если:
+        - sum(weights in S) >= quota (группа критична)
+        - sum(weights in S \ {v}) < quota (без v группа не критична)
+        
+        weighted_version=False: каждый pivotal-узел добавляет 1
+        weighted_version=True: каждый pivotal-узел добавляет размер группы
+        """
         G = self._ensure_directed()
-
-        pivotal_counts = {node: 0 for node in G.nodes()}
+        pivotal = {node: 0 for node in G.nodes()}
 
         for node in G.nodes():
             in_edges = list(G.in_edges(node, data='weight', default=1))
-
             m = len(in_edges)
-
-            quota = self.quotas.get(node, 0)
 
             if m == 0:
                 continue
 
+            quota = self.quotas.get(node, 0)
             max_group_size = min(self.subset_size, m)
 
+            # Перебираем все возможные группы размером от 1 до max_group_size
             for group_size in range(1, max_group_size + 1):
                 for edge_group in combinations(in_edges, group_size):
                     total_weight = sum(w for _, _, w in edge_group)
 
+                    # Проверяем, является ли группа критической
                     if total_weight < quota:
                         continue
 
-                    for _, _, w in edge_group:
-                        if total_weight - w < quota:
-                            if weighted_version:
-                                pivotal_counts[node] += group_size
-                            else:
-                                pivotal_counts[node] += 1
+                    # Для каждого узла в группе проверяем, является ли он pivotal
+                    for source, target, weight in edge_group:
+                        weight_without_this_edge = total_weight - weight
 
-        return pivotal_counts
+                        # Если без этого узла группа не критична, он pivotal
+                        if weight_without_this_edge < quota:
+                            if weighted_version:
+                                # Добавляем размер группы (количество рёбер в группе)
+                                pivotal[node] += group_size
+                            else:
+                                # Просто добавляем 1
+                                pivotal[node] += 1
+
+        return pivotal
 
     def calculate_all(self):
         try:
@@ -159,6 +179,7 @@ class IndicesCalculator:
 
     @staticmethod
     def get_indices_shares(indices):
+        """Нормализованные значения индексов (сумма = 1)"""
         total = sum(indices.values())
         if total > 0:
             return [score / total for score in indices.values()]
