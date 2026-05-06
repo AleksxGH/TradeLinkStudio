@@ -1,32 +1,90 @@
-/* Основной фон для всего приложения */
-* {
-    background-color: #E6E9EF;
-    font-family: "Open Sans", sans-serif;
+﻿* {
+    font-family: "Open Sans";
+    font-size: 20px;
+    font-weight: 400;
+    font-style: normal;
+    color: #000000;
 }
 
-QPushButton {
-    font-family: "Open Sans", sans-serif;
-    font-size: 22px;
+QLabel#appTitle {
+    font-size: 40px;
+    font-weight: 400;
+}
+
+QPushButton,
+QToolButton,
+QLineEdit,
+QTextEdit,
+QPlainTextEdit,
+QComboBox,
+QSpinBox,
+QMenu {
+    font-family: "Open Sans";
+    font-size: 20px;
     font-weight: 600;
-    color: white;
-    background-color: #4682B4;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
+    font-style: normal;
+    color: #000000;
 }
 
-QPushButton:disabled {
-    background-color: #b0b0b0;  /* Светло-серый фон */
-    color: #7a7a7a;            /* Темно-серый текст */
-    border: 1px solid #cccccc; /* Серая граница */
+QPushButton,
+QToolButton {
+    background-color: #F4F7FC;
+    border: 1px solid #CFD8E3;
+    border-radius: 8px;
+    padding: 8px 16px;
 }
 
-QLabel {
-    font-family: "Open Sans", sans-serif;
-    font-size: 22px;
+QPushButton:hover,
+QToolButton:hover {
+    background-color: #EAF1FF;
+    border-color: #AFC1E6;
 }
 
-h2 {
-    font-size: 28px;
-    margin-bottom: 10px;
+QPushButton:pressed,
+QToolButton:pressed {
+    background-color: #DCE7FA;
+}
+
+QPushButton:disabled,
+QToolButton:disabled {
+    background-color: #E6E9EF;
+    color: #8B8B8B;
+    border-color: #D0D5DE;
+}
+
+QPushButton:enabled,
+QToolButton:enabled {
+    background-color: #4682b4;
+    color: #FFFFFF;
+    border-color: #2e5080;
+}
+
+QPushButton:enabled:hover,
+QToolButton:enabled:hover {
+    background-color: #36669a;
+    border-color: #1f3860;
+}
+
+QPushButton:enabled:pressed,
+QToolButton:enabled:pressed {
+    background-color: #274680;
+}
+
+QPushButton[mainAction="true"],
+QPushButton[iconAction="true"] {
+    color: #000000;
+    font-weight: 600;
+}
+
+QTableView#dataTable {
+    background-color: #e0e8f9;
+    alternate-background-color: #f0f4fc;
+}
+
+QMenu::item {
+    padding: 8px 18px;
+}
+
+QMenu::item:selected {
+    background-color: #dbe6fb;
 }

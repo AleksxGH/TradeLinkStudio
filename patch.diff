@@ -1,0 +1,65 @@
+﻿*** Begin Patch
+*** Delete File: c:\Users\user\Desktop\TradeLinkStudio\style\style.qss
+*** Add File: c:\Users\user\Desktop\TradeLinkStudio\style\style.qss
++* {
++    font-family: "Open Sans";
++    font-size: 20px;
++    font-weight: 400;
++    font-style: normal;
++    color: #000000;
++}
++
++QLabel#appTitle {
++    font-size: 40px;
++    font-weight: 400;
++}
++
++QPushButton,
++QToolButton,
++QLineEdit,
++QTextEdit,
++QPlainTextEdit,
++QComboBox,
++QSpinBox,
++QMenu {
++    font-family: "Open Sans";
++    font-size: 20px;
++    font-weight: 400;
++    font-style: normal;
++    color: #000000;
++}
++
++QPushButton,
++QToolButton {
++    background-color: #F4F7FC;
++    border: 1px solid #CFD8E3;
++    border-radius: 8px;
++    padding: 8px 16px;
++}
++
++QPushButton:hover,
++QToolButton:hover {
++    background-color: #EAF1FF;
++    border-color: #AFC1E6;
++}
++
++QPushButton:pressed,
++QToolButton:pressed {
++    background-color: #DCE7FA;
++}
++
++QPushButton:disabled,
++QToolButton:disabled {
++    background-color: #E6E9EF;
++    color: #8B8B8B;
++    border-color: #D0D5DE;
++}
++
++QMenu::item {
++    padding: 8px 18px;
++}
++
++QMenu::item:selected {
++    background-color: #dbe6fb;
++}
+*** End Patch

@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from app.ui.home_window import HomeWindow
-from style.style_manager import load_styles
+from style.style_manager import load_styles, load_fonts
 
 def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
@@ -15,6 +15,7 @@ def resource_path(relative_path: str) -> str:
 def main():
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon("/resources/icons/app.ico"))
+    load_fonts()  # Load custom fonts first
     load_styles(app, "style.qss")
     window = HomeWindow()
     window.show()

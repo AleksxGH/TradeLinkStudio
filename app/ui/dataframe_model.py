@@ -63,9 +63,15 @@ class DataFrameModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return str(self._df.columns[section])
+                # Проверяем, что индекс в пределах размера DataFrame
+                if section < len(self._df.columns):
+                    return str(self._df.columns[section])
+                return None
             else:
-                return str(self._df.index[section])
+                # Проверяем, что индекс в пределах размера DataFrame
+                if section < len(self._df.index):
+                    return str(self._df.index[section])
+                return None
         return None
 
     def get_dataframe(self):

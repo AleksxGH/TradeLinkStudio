@@ -1,5 +1,5 @@
 {
-    "use_standard_dirs": true,
+    "use_standard_dirs": false,
     "weighted_mode": true,
     "normalization": true,
     "decimal_precision": 6,

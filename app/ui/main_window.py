@@ -85,14 +85,26 @@ class MainWindow(QMainWindow):
         self.redo_button.setToolTip("Redo (Ctrl+Y)")
         
         self.calc_button = QPushButton("Calculate indices")
-        self.export_button = QPushButton("Export")
+        self.export_button = QPushButton()
+        self.export_button.setIcon(QIcon("resources/icons/export_icon.png"))
+        self.export_button.setToolTip("Export")
         
         self.save_button = QPushButton()
         self.save_button.setIcon(QIcon("resources/icons/save.png"))
         self.save_button.setToolTip("Save project")
         
         self.rename_vertices_button = QPushButton("Rename Vertices")
-        self.rename_project_button = QPushButton("Rename Project")
+
+        for button in [
+            self.home_button,
+            self.load_button,
+            self.calc_button,
+            self.rename_vertices_button,
+        ]:
+            self._mark_main_action_button(button)
+
+        for button in [self.undo_button, self.redo_button, self.export_button, self.save_button]:
+            self._mark_icon_action_button(button)
 
         self.calc_button.setEnabled(False)
         self.export_button.setEnabled(False)
@@ -105,6 +117,8 @@ class MainWindow(QMainWindow):
         self.undo_button.setMaximumHeight(40)
         self.redo_button.setMaximumWidth(40)
         self.redo_button.setMaximumHeight(40)
+        self.export_button.setMaximumWidth(40)
+        self.export_button.setMaximumHeight(40)
         self.save_button.setMaximumWidth(40)
         self.save_button.setMaximumHeight(40)
 
@@ -114,8 +128,6 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.redo_button)
         button_layout.addWidget(self.calc_button)
         button_layout.addWidget(self.export_button)
-        button_layout.addWidget(self.rename_vertices_button)
-        button_layout.addWidget(self.rename_project_button)
         button_layout.addWidget(self.save_button)
         button_layout.addStretch()
 
@@ -147,7 +159,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(quotas_label)
 
         self.quotas_table = QTableView()
-        self.quotas_table.setAlternatingRowColors(True)
+        self._configure_data_table(self.quotas_table)
         self.quotas_table.setMaximumHeight(80)
         main_layout.addWidget(self.quotas_table)
 
@@ -164,17 +176,22 @@ class MainWindow(QMainWindow):
         
         # Buttons for expanding/shrinking matrix
         matrix_controls_layout = QHBoxLayout()
+        self._mark_main_action_button(self.rename_vertices_button)
         self.expand_matrix_button = QPushButton("Expand Matrix")
         self.shrink_matrix_button = QPushButton("Shrink Matrix")
+        self._mark_main_action_button(self.expand_matrix_button)
+        self._mark_main_action_button(self.shrink_matrix_button)
+        self.rename_vertices_button.clicked.connect(self._rename_vertices)
         self.expand_matrix_button.clicked.connect(self._expand_matrix)
         self.shrink_matrix_button.clicked.connect(self._shrink_matrix)
+        matrix_controls_layout.addWidget(self.rename_vertices_button)
         matrix_controls_layout.addWidget(self.expand_matrix_button)
         matrix_controls_layout.addWidget(self.shrink_matrix_button)
         matrix_controls_layout.addStretch()
         left_layout.addLayout(matrix_controls_layout)
 
         self.matrix_table = QTableView()
-        self.matrix_table.setAlternatingRowColors(True)
+        self._configure_data_table(self.matrix_table)
         left_layout.addWidget(self.matrix_table)
 
         splitter.addWidget(left_container)
@@ -188,7 +205,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(indices_label)
 
         self.indices_table = QTableView()
-        self.indices_table.setAlternatingRowColors(True)
+        self._configure_data_table(self.indices_table)
         right_layout.addWidget(self.indices_table)
 
         splitter.addWidget(right_container)
@@ -205,16 +222,30 @@ class MainWindow(QMainWindow):
         self.redo_button.clicked.connect(self.on_redo)
         self.calc_button.clicked.connect(self.calculate_indices)
         self.export_button.clicked.connect(self.export_data)
-        self.rename_vertices_button.clicked.connect(self._rename_vertices)
-        self.rename_project_button.clicked.connect(self._rename_project)
         self.save_button.clicked.connect(self.save_project)
+
+    def _mark_main_action_button(self, button):
+        button.setProperty("mainAction", "true")
+        button.style().unpolish(button)
+        button.style().polish(button)
+
+    def _mark_icon_action_button(self, button):
+        button.setProperty("iconAction", "true")
+        button.style().unpolish(button)
+        button.style().polish(button)
+
+    def _configure_data_table(self, table):
+        table.setAlternatingRowColors(True)
+        table.setObjectName("dataTable")
+        table.style().unpolish(table)
+        table.style().polish(table)
 
 
 
     def to_home(self):
 
         if not self.is_dirty and not self.project.is_dirty:
-
+            self.parent_window.refresh_projects_list()
             self.parent_window.show()
             self.close()
             return
@@ -233,6 +264,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             ProjectManager.save_project(self.project, self.datastore)
 
+        self.parent_window.refresh_projects_list()
         self.parent_window.show()
         self.close()
 
