@@ -13,7 +13,8 @@ from PyQt5.QtWidgets import (
     QSpinBox,
     QDialog,
     QLineEdit,
-    QInputDialog
+    QInputDialog,
+    QScrollArea
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
@@ -732,10 +733,16 @@ class MainWindow(QMainWindow):
         # Создаём диалог для переименования
         dialog = QDialog(self)
         dialog.setWindowTitle("Rename Vertices")
-        dialog.resize(400, 300)
+        dialog.resize(500, 420)
         
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Enter new names for vertices:"))
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
         
         name_inputs = {}
         for vertex in vertices:
@@ -745,7 +752,11 @@ class MainWindow(QMainWindow):
             line_edit.setText(vertex)
             name_inputs[vertex] = line_edit
             h_layout.addWidget(line_edit)
-            layout.addLayout(h_layout)
+            scroll_layout.addLayout(h_layout)
+
+        scroll_layout.addStretch()
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
         
         # Buttons
         btn_layout = QHBoxLayout()
