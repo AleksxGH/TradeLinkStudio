@@ -36,7 +36,7 @@ def main():
     sys.excepthook = _excepthook
 
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon(icon_path("app.ico")))
+    app.setWindowIcon(QIcon(icon_path("app_icon.ico")))
     load_fonts()  # Load custom fonts first
     load_styles(app, "style/style.qss")
 

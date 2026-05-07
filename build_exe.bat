@@ -18,7 +18,7 @@ for /f "usebackq delims=" %%i in ("build\exe_name.txt") do set "exe_name=%%i"
 if not defined exe_name set "exe_name=TradeLink Studio"
 
 REM Создаём exe через PyInstaller с именем и metadata
-pyinstaller --onefile --windowed --name "%exe_name%" --version-file build/version_file.txt --icon=resources\icons\app.ico ^
+pyinstaller --onefile --windowed --name "%exe_name%" --version-file build/version_file.txt --icon=resources\icons\app_icon.ico ^
                         --add-data "resources;resources" ^
                         --add-data "style;style" ^
                         --add-data "app\version.json;app" ^

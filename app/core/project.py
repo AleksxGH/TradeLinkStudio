@@ -8,7 +8,7 @@ class Project:
         self.results_full_df = None
         self.vertices = []
         self.quotas = {}
-        self.subset_size = 0
+        self.subset_size = 1
         self.decimal_precision = 6
         self.show_weighted_pivotal = True
         self.show_normalized = True

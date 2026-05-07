@@ -43,7 +43,7 @@ class HomeWindow(QWidget):
         self.version_text = self._load_version()
         self.setWindowTitle("TradeLink Studio")
         self.resize(1360, 820)
-        self.setWindowIcon(QIcon(resolve_icon_path("app.ico")))
+        self.setWindowIcon(QIcon(resolve_icon_path("app_icon.ico")))
         self._init_ui()
         self.refresh_projects_list()
 
@@ -61,7 +61,7 @@ class HomeWindow(QWidget):
 
         brand_row = QHBoxLayout()
         brand_icon = QLabel()
-        brand_icon.setPixmap(QIcon(resolve_icon_path("app.ico")).pixmap(QSize(80, 80)))
+        brand_icon.setPixmap(QIcon(resolve_icon_path("app_icon.ico")).pixmap(QSize(80, 80)))
         brand_icon.setStyleSheet("border-radius: 12px; background-color: transparent;")
         brand_row.addWidget(brand_icon, 0, Qt.AlignTop)
 

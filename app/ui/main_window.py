@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
         self.resize(1400, 800)
-        self.setWindowIcon(QIcon(icon_path("app.ico")))
+        self.setWindowIcon(QIcon(icon_path("app_icon.ico")))
 
         self._init_ui()
         
@@ -104,11 +104,11 @@ class MainWindow(QMainWindow):
         
         # Создаём кнопки undo/redo с иконками
         self.undo_button = QPushButton()
-        self.undo_button.setIcon(QIcon(icon_path("undo.png")))
+        self.undo_button.setIcon(QIcon(icon_path("undo_icon.png")))
         self.undo_button.setToolTip("Undo (Ctrl+Z)")
         
         self.redo_button = QPushButton()
-        self.redo_button.setIcon(QIcon(icon_path("redo.png")))
+        self.redo_button.setIcon(QIcon(icon_path("redo_icon.png")))
         self.redo_button.setToolTip("Redo (Ctrl+Y)")
         
         self.calc_button = QPushButton("Calculate indices")
@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         self.export_button.setToolTip("Export")
         
         self.save_button = QPushButton()
-        self.save_button.setIcon(QIcon(icon_path("save.png")))
+        self.save_button.setIcon(QIcon(icon_path("save_icon.png")))
         self.save_button.setToolTip("Save project")
         
         self.rename_vertices_button = QPushButton("Rename Vertices")

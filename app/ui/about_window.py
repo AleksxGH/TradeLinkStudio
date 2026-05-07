@@ -12,7 +12,7 @@ class AboutWindow(PyQt5.QtWidgets.QMainWindow):
 
         self.setWindowTitle("TradeLink Studio - About")
         self.resize(1360, 820)
-        self.setWindowIcon(QIcon(icon_path("app.ico")))
+        self.setWindowIcon(QIcon(icon_path("app_icon.ico")))
 
         self._init_ui()
 
