@@ -22,7 +22,7 @@ class DataStore:
         # Если отпечаток совпадает с последним — пропускаем push
         if fp is not None and fp == self._last_fingerprint:
             log_debug("DataStore.push: skipped duplicate snapshot")
-            return
+            return False
 
         # Обрезаем "впереди" историю при новой ветке
         self.states = self.states[: self.current_index + 1]
@@ -30,6 +30,7 @@ class DataStore:
         self.current_index += 1
         self._last_fingerprint = fp
         log_debug(f"DataStore.push: new snapshot index={self.current_index}")
+        return True
 
     def current(self):
         # безопасно возвращаем текущее состояние или None,

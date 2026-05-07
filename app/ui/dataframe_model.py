@@ -32,10 +32,16 @@ class DataFrameModel(QAbstractTableModel):
             except Exception:
                 return str(value)
 
+            if self._precision is None:
+                if f.is_integer():
+                    return str(int(f))
+                return f"{f:.7f}".rstrip("0").rstrip(".")
+
             if f.is_integer():
                 return str(int(f))
-            if self._precision is None:
-                return f"{f:.7f}".rstrip("0").rstrip(".")
+
+            # Precision задает максимум знаков после запятой.
+            # Если после округления появляются хвостовые нули, убираем их.
             return f"{f:.{self._precision}f}".rstrip("0").rstrip(".")
 
         return None
@@ -46,12 +52,10 @@ class DataFrameModel(QAbstractTableModel):
 
         try:
             # Попытаемся конвертировать ввод в число
-            # Поддержим ввод с запятой (заменим на точку) с предупреждением
+            # Поддержим ввод с запятой (заменим на точку)
             raw = value
             if isinstance(raw, str) and "," in raw:
-                # Покажем предупреждение при использовании запятой как разделителя
                 log_debug(f"User entered comma as decimal separator: {raw}")
-                QMessageBox.warning(None, "Invalid format", "Please use '.' as decimal separator. Comma will be converted automatically.")
                 raw = raw.replace(',', '.')
 
             float_value = float(raw)

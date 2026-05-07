@@ -1,7 +1,5 @@
 import json
 import os
-import urllib.parse
-import webbrowser
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QFont, QIcon
@@ -244,20 +242,6 @@ class HomeWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
 
-        title = QLabel("Help")
-        title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Open Sans", 44, QFont.Bold))
-        title.setStyleSheet("color: #000000;")
-        layout.addWidget(title)
-
-        actions = QHBoxLayout()
-        contact_button = QPushButton("Contact Support")
-        contact_button.setStyleSheet("color: #000000;")
-        contact_button.clicked.connect(self._contact_support)
-        actions.addWidget(contact_button)
-        actions.addStretch(1)
-        layout.addLayout(actions)
-
         self.help_browser = QTextBrowser()
         self.help_browser.setStyleSheet("""
             QTextBrowser {
@@ -267,30 +251,22 @@ class HomeWindow(QWidget):
             }
         """)
 
-        try:
-            html_path = resource_path("resources", "ui", "about.html")
-            with open(html_path, "r", encoding="utf-8") as file:
-                self.help_browser.setHtml(file.read())
-        except Exception:
-            self.help_browser.setText("Help content is unavailable.")
+        self.help_browser.setHtml(self._build_help_html())
 
         layout.addWidget(self.help_browser, 1)
         return page
 
+    def _build_help_html(self):
+        help_path = resource_path("resources", "ui", "help.html")
+        try:
+            with open(help_path, "r", encoding="utf-8") as file_handle:
+                return file_handle.read()
+        except OSError:
+            return "<html><body><p>Help content is not available.</p></body></html>"
+
     def _save_inline_settings(self):
         self.config.set("use_standard_dirs", self.standard_dirs_checkbox.isChecked())
         self.config.save()
-
-    def _contact_support(self):
-        recipient = "admishchenko@edu.hse.ru"
-        subject = "TradeLink Studio Support Request"
-        body = "Describe your issue here"
-        mailto_link = (
-            f"mailto:{recipient}"
-            f"?subject={urllib.parse.quote(subject)}"
-            f"&body={urllib.parse.quote(body)}"
-        )
-        webbrowser.open(mailto_link)
 
     def _menu_button(self, text, icon_name, callback):
         button = QPushButton(text)

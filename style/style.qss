@@ -1,14 +1,14 @@
 ﻿* {
     font-family: "Open Sans";
     font-size: 20px;
-    font-weight: 400;
+    font-weight: 500;
     font-style: normal;
     color: #000000;
 }
 
 QLabel#appTitle {
     font-size: 40px;
-    font-weight: 400;
+    font-weight: 500;
 }
 
 QPushButton,
@@ -20,8 +20,8 @@ QComboBox,
 QSpinBox,
 QMenu {
     font-family: "Open Sans";
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 22px;
+    font-weight: 500;
     font-style: normal;
     color: #000000;
 }
@@ -73,7 +73,7 @@ QToolButton:enabled:pressed {
 QPushButton[mainAction="true"],
 QPushButton[iconAction="true"] {
     color: #000000;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 QTableView#dataTable {

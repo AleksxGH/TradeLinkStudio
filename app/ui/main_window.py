@@ -15,9 +15,10 @@ from PyQt5.QtWidgets import (
     QDialog,
     QLineEdit,
     QInputDialog,
-    QScrollArea
+    QScrollArea,
+    QProgressBar
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from app.data.exporter import save_results
@@ -32,6 +33,21 @@ from app.services.validators import validate_project_name, validate_vertex_names
 from app.ui.dataframe_model import DataFrameModel
 from app.core.datastore import DataStore
 from app.services.logging_service import log_debug, log_error
+
+
+class _TaskWorker(QObject):
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, task):
+        super().__init__()
+        self._task = task
+
+    def run(self):
+        try:
+            self.finished.emit(self._task())
+        except Exception as exc:
+            self.failed.emit(str(exc))
 
 
 class MainWindow(QMainWindow):
@@ -57,6 +73,8 @@ class MainWindow(QMainWindow):
         
         # Флаг для отслеживания изменений
         self.is_dirty = False
+        self._busy_thread = None
+        self._busy_worker = None
 
         self.project.decimal_precision = getattr(self.project, "decimal_precision", 6)
         self.project.show_weighted_pivotal = getattr(self.project, "show_weighted_pivotal", True)
@@ -143,9 +161,19 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(button_layout)
 
         # ===== STATUS LABEL =====
+        status_layout = QHBoxLayout()
         self.status_label = QLabel("No data loaded")
         self.status_label.setAlignment(Qt.AlignLeft)
-        main_layout.addWidget(self.status_label)
+        self.loading_bar = QProgressBar()
+        self.loading_bar.setRange(0, 0)
+        self.loading_bar.setTextVisible(False)
+        self.loading_bar.setFixedWidth(160)
+        self.loading_bar.hide()
+
+        status_layout.addWidget(self.status_label)
+        status_layout.addStretch()
+        status_layout.addWidget(self.loading_bar)
+        main_layout.addLayout(status_layout)
 
         # ===== SUBSET SIZE CONTROL =====
         subset_layout = QHBoxLayout()
@@ -224,13 +252,13 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(indices_label)
 
         indices_controls_layout = QHBoxLayout()
-        self.weighted_visibility_button = QPushButton("PI' weighted")
+        self.weighted_visibility_button = QPushButton("Show/Hide PI's weighted version")
         self.weighted_visibility_button.setCheckable(True)
         self.weighted_visibility_button.setChecked(self.project.show_weighted_pivotal)
         self.weighted_visibility_button.clicked.connect(self._on_indices_visibility_changed)
         self._mark_main_action_button(self.weighted_visibility_button)
 
-        self.normalized_visibility_button = QPushButton("Normalized data")
+        self.normalized_visibility_button = QPushButton("Show/Hide normalized columns")
         self.normalized_visibility_button.setCheckable(True)
         self.normalized_visibility_button.setChecked(self.project.show_normalized)
         self.normalized_visibility_button.clicked.connect(self._on_indices_visibility_changed)
@@ -324,10 +352,19 @@ class MainWindow(QMainWindow):
 
         visible_columns = []
         for column in full_df.columns:
-            if column.startswith("PI'") and not include_weighted:
+            is_weighted_column = column.startswith("PI'")
+            is_normalized_column = column.endswith(" (norm)")
+
+            if is_weighted_column and not include_weighted:
                 continue
-            if column.endswith(" (norm)") and not include_normalized:
-                continue
+
+            if is_normalized_column:
+                if not include_normalized:
+                    continue
+
+                if is_weighted_column and not include_weighted:
+                    continue
+
             visible_columns.append(column)
 
         view_df = full_df.loc[:, visible_columns].copy()
@@ -336,6 +373,81 @@ class MainWindow(QMainWindow):
     def _update_indices_visibility_controls(self):
         self.weighted_visibility_button.setEnabled(True)
         self.normalized_visibility_button.setEnabled(True)
+        self._update_indices_visibility_button_texts()
+
+    def _update_indices_visibility_button_texts(self):
+        return
+
+    def _set_loading_state(self, is_loading, message=None):
+        if is_loading:
+            if message:
+                self.status_label.setText(message)
+            self.loading_bar.show()
+            for widget in (
+                self.home_button,
+                self.load_button,
+                self.undo_button,
+                self.redo_button,
+                self.calc_button,
+                self.export_button,
+                self.save_button,
+                self.rename_vertices_button,
+                self.expand_matrix_button,
+                self.shrink_matrix_button,
+                self.weighted_visibility_button,
+                self.normalized_visibility_button,
+                self.precision_spinbox,
+                self.subset_spinbox,
+            ):
+                widget.setEnabled(False)
+            QApplication.processEvents()
+            return
+
+        self.loading_bar.hide()
+
+    def _start_background_task(self, task, busy_message, success_handler, error_handler=None):
+        if self._busy_thread is not None:
+            return
+
+        self._set_loading_state(True, busy_message)
+
+        thread = QThread(self)
+        worker = _TaskWorker(task)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(success_handler)
+        worker.failed.connect(error_handler if error_handler is not None else self._handle_background_task_error)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._clear_background_task_refs)
+
+        self._busy_thread = thread
+        self._busy_worker = worker
+        thread.start()
+
+    def _clear_background_task_refs(self):
+        self._busy_thread = None
+        self._busy_worker = None
+
+    def _restore_controls_after_background_task(self):
+        self.loading_bar.hide()
+        self.home_button.setEnabled(True)
+        self.load_button.setEnabled(True)
+        self.rename_vertices_button.setEnabled(True)
+        self.expand_matrix_button.setEnabled(True)
+        self.shrink_matrix_button.setEnabled(True)
+        self.weighted_visibility_button.setEnabled(True)
+        self.normalized_visibility_button.setEnabled(True)
+        self.precision_spinbox.setEnabled(True)
+        self.subset_spinbox.setEnabled(True)
+        self._update_undo_redo_buttons()
+
+    def _handle_background_task_error(self, error_message):
+        self._restore_controls_after_background_task()
+        QMessageBox.critical(self, "Error", error_message)
 
     def _sync_indices_state(self, target_state=None):
         current_state = target_state if target_state is not None else self.datastore.current()
@@ -374,10 +486,14 @@ class MainWindow(QMainWindow):
 
         new_state = copy.deepcopy(current_state)
         new_state["decimal_precision"] = value
-        self._refresh_indices_view()
-        # Обновляем snapshot состояния с новым precision
         self._sync_indices_state(new_state)
-        self.datastore.push(new_state)
+        state_changed = self.datastore.push(new_state)
+        self._show_indices(new_state)
+        self.indices_table.viewport().update()
+        QApplication.processEvents()
+        if state_changed:
+            self.project.is_dirty = True
+            self.save_button.setEnabled(True)
         self._update_undo_redo_buttons()
 
     def _on_indices_visibility_changed(self):
@@ -392,10 +508,16 @@ class MainWindow(QMainWindow):
         new_state = copy.deepcopy(current_state)
         new_state["show_weighted_pivotal"] = self.project.show_weighted_pivotal
         new_state["show_normalized"] = self.project.show_normalized
-        self._refresh_indices_view()
-        # Обновляем snapshot состояния с флагами видимости
         self._sync_indices_state(new_state)
-        self.datastore.push(new_state)
+        state_changed = self.datastore.push(new_state)
+        self._show_indices(new_state)
+        self.indices_table.viewport().update()
+        QApplication.processEvents()
+        if state_changed:
+            self.is_dirty = True
+            self.project.is_dirty = True
+            self.save_button.setEnabled(True)
+            self._update_calc_button()
         self._update_undo_redo_buttons()
 
 
@@ -438,24 +560,28 @@ class MainWindow(QMainWindow):
         if not file_path:
             return
 
-        try:
-            _df, vertices, subset_size, quotas, graph = read_data(file_path)
+        def task():
+            return read_data(file_path)
 
-            self.controller.set_state(
-                matrix=graph,
-                vertices=vertices,
-                quotas=quotas,
-                subset_size=subset_size,
-                decimal_precision=self.precision_spinbox.value(),
-                show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
-                show_normalized=self.normalized_visibility_button.isChecked(),
-                project_title=self.project.title
-            )
+        def on_success(result):
+            _df, vertices, subset_size, quotas, graph = result
+
+            state = {
+                "matrix": graph,
+                "vertices": vertices,
+                "quotas": quotas,
+                "subset_size": subset_size,
+                "decimal_precision": self.precision_spinbox.value(),
+                "show_weighted_pivotal": self.weighted_visibility_button.isChecked(),
+                "show_normalized": self.normalized_visibility_button.isChecked(),
+                "project_title": self.project.title,
+            }
+
+            state_changed = self.datastore.push(state)
 
             self._show_quotas(quotas, vertices)
             self._show_matrix(graph, vertices)
 
-            # Установим spinbox для subset_size
             self.subset_spinbox.setEnabled(True)
             self.subset_spinbox.setMaximum(len(vertices))
             self.subset_spinbox.blockSignals(True)
@@ -469,22 +595,30 @@ class MainWindow(QMainWindow):
             self._update_indices_visibility_controls()
 
             self.save_button.setEnabled(True)
-            self.calc_button.setEnabled(True)  # Активна сразу после загрузки
+            self.calc_button.setEnabled(True)
             self.export_button.setEnabled(False)
-            
-            # Сброс флага грязных данных
             self.is_dirty = False
-            self._update_undo_redo_buttons()
+            self.project.is_dirty = False
+            self.project.computed = False
+            self.project.quotas = quotas
+            self.project.vertices = vertices
+            self.project.subset_size = subset_size
+            self.project.decimal_precision = self.precision_spinbox.value()
+            self.project.show_weighted_pivotal = self.weighted_visibility_button.isChecked()
+            self.project.show_normalized = self.normalized_visibility_button.isChecked()
 
-            self.status_label.setText(
-                f"Loaded: {file_path} | Vertices: {len(vertices)}"
-            )
+            self.status_label.setText(f"Loaded: {file_path} | Vertices: {len(vertices)}")
+            self._restore_controls_after_background_task()
+            self._update_undo_redo_buttons()
 
             QMessageBox.information(self, "Success", "File uploaded")
 
-        except Exception as e:
-            log_error(f"Error uploading file {file_path}: {e}")
-            QMessageBox.critical(self, "Error", str(e))
+        def on_error(error_message):
+            self._restore_controls_after_background_task()
+            log_error(f"Error uploading file {file_path}: {error_message}")
+            QMessageBox.critical(self, "Error", error_message)
+
+        self._start_background_task(task, f"Loading: {file_path}", on_success, on_error)
 
     def calculate_indices(self):
         """Вычисляет индексы из текущего состояния таблиц"""
@@ -494,67 +628,68 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            # Обновляем state из отредактированных таблиц
             quotas_df = self.quotas_model.get_dataframe()
             matrix_df = self.matrix_model.get_dataframe()
-            
-            # Обновляем квоты (берём из первой строки)
-            quotas = {}
-            for col in quotas_df.columns:
-                quotas[col] = quotas_df.at[0, col]
-            
-            # Обновляем матрицу в граф
+
+            quotas = {col: quotas_df.at[0, col] for col in quotas_df.columns}
+
             import networkx as nx
             vertices = list(matrix_df.index)
             graph = nx.DiGraph()
-            
+
             for vertex in vertices:
                 graph.add_node(vertex)
-            
+
             for i, source in enumerate(vertices):
                 for j, target in enumerate(vertices):
                     weight = matrix_df.iat[i, j]
                     if weight != 0:
                         graph.add_edge(source, target, weight=weight)
-            
-            # Создаём новое состояние с обновленными данными
+
             new_state = {
                 "quotas": quotas,
                 "matrix": graph,
                 "subset_size": self.subset_spinbox.value(),
                 "vertices": vertices,
-                "project_title": self.project.title
+                "project_title": self.project.title,
+                "decimal_precision": self.precision_spinbox.value(),
+                "show_weighted_pivotal": self.weighted_visibility_button.isChecked(),
+                "show_normalized": self.normalized_visibility_button.isChecked(),
             }
-            
-            # Добавляем в историю
-            self.datastore.push(new_state)
-            
-            # Пересчитываем индексы
-            result = self.controller.recompute()
 
+            state_changed = self.datastore.push(new_state)
+            working_state = copy.deepcopy(new_state)
+
+        except Exception as e:
+            log_error(f"Error preparing indices calculation: {e}")
+            QMessageBox.critical(self, "Error", f"Error calculating indices:\n{str(e)}")
+            return
+
+        def task():
+            return self.controller.engine.compute(working_state, self.config)
+
+        def on_success(result):
             if result is None:
+                self._restore_controls_after_background_task()
                 QMessageBox.warning(self, "Error", "Failed to calculate indices")
                 return
 
-            vertices = new_state.get("vertices", [])
+            vertices_local = new_state.get("vertices", [])
             subset_size = new_state.get("subset_size", 0)
+            full_df = self._build_indices_dataframe(result, vertices_local, subset_size)
 
             current_state = self.datastore.current()
             if current_state is not None:
                 current_state["decimal_precision"] = self.precision_spinbox.value()
                 current_state["show_weighted_pivotal"] = self.weighted_visibility_button.isChecked()
                 current_state["show_normalized"] = self.normalized_visibility_button.isChecked()
-
-            full_df = self._build_indices_dataframe(result, vertices, subset_size)
-            current_state = self.datastore.current()
-            if current_state is not None:
                 current_state["indices_full"] = full_df.to_dict(orient="split")
 
             self._show_indices(current_state)
 
             self.project.results_df = self.indices_table.model().get_dataframe() if hasattr(self.indices_table.model(), "get_dataframe") else None
             self.project.results_full_df = full_df
-            self.project.vertices = vertices
+            self.project.vertices = vertices_local
             self.project.quotas = quotas
             self.project.subset_size = subset_size
             self.project.decimal_precision = self.precision_spinbox.value()
@@ -565,44 +700,50 @@ class MainWindow(QMainWindow):
             if current_state is not None and self.project.results_df is not None:
                 current_state["indices"] = self.project.results_df.to_dict(orient="split")
 
-            
-            # Сброс флага грязных данных
             self.is_dirty = False
             self.project.is_dirty = True
+            self.save_button.setEnabled(True)
+            self.export_button.setEnabled(self.project.results_df is not None and not self.project.results_df.empty)
+            self._restore_controls_after_background_task()
             self._update_calc_button()
             self._update_undo_redo_buttons()
 
-        except Exception as e:
-            log_error(f"Error calculating indices: {e}")
-            QMessageBox.critical(self, "Error", f"Error calculating indices:\n{str(e)}")
+        def on_error(error_message):
+            self._restore_controls_after_background_task()
+            log_error(f"Error calculating indices: {error_message}")
+            QMessageBox.critical(self, "Error", f"Error calculating indices:\n{error_message}")
+
+        self._start_background_task(task, "Calculating indices...", on_success, on_error)
 
     def _on_subset_size_changed(self, value):
         """Отмечает данные как грязные при изменении subset_size"""
-        self.is_dirty = True
-        self.project.is_dirty = True
-        self.project.computed = False
-        self.project.results_df = None
-        self.export_button.setEnabled(False)
         current_state = self.datastore.current()
         if current_state is not None:
             new_state = copy.deepcopy(current_state)
             self._sync_current_state_from_ui(new_state)
-            self.datastore.push(new_state)
+            state_changed = self.datastore.push(new_state)
+            if state_changed:
+                self.is_dirty = True
+                self.project.is_dirty = True
+                self.project.computed = False
+                self.project.results_df = None
+                self.export_button.setEnabled(False)
         self._update_calc_button()
         self._update_undo_redo_buttons()
 
     def _mark_data_dirty(self):
         """Отмечает данные как грязные и обновляет статус кнопки"""
-        self.is_dirty = True
-        self.project.is_dirty = True
-        self.project.computed = False
-        self.project.results_df = None
-        self.export_button.setEnabled(False)
         current_state = self.datastore.current()
         if current_state is not None:
             new_state = copy.deepcopy(current_state)
             self._sync_current_state_from_ui(new_state)
-            self.datastore.push(new_state)
+            state_changed = self.datastore.push(new_state)
+            if state_changed:
+                self.is_dirty = True
+                self.project.is_dirty = True
+                self.project.computed = False
+                self.project.results_df = None
+                self.export_button.setEnabled(False)
         self._update_calc_button()
         self._update_undo_redo_buttons()
 
@@ -886,6 +1027,8 @@ class MainWindow(QMainWindow):
         self.normalized_visibility_button.setChecked(show_normalized)
         self.normalized_visibility_button.blockSignals(False)
 
+        self._update_indices_visibility_button_texts()
+
         self._update_indices_visibility_controls()
         self._show_indices(state)
 
@@ -1020,15 +1163,44 @@ class MainWindow(QMainWindow):
         vertices = list(current_df.index)
         
         # Генерируем новое имя вершины
-        max_num = 0
-        for v in vertices:
-            if v.startswith("V"):
-                try:
-                    num = int(v[1:])
-                    max_num = max(max_num, num)
-                except ValueError:
-                    pass
-        new_vertex = f"V{max_num + 1}"
+        import re
+
+        numeric_groups = {}
+        pattern = re.compile(r"^(?P<prefix>[A-Za-z_]+?)(?P<number>\d+)$")
+
+        for vertex in vertices:
+            match = pattern.match(str(vertex).strip())
+            if not match:
+                continue
+
+            prefix = match.group("prefix")
+            number = int(match.group("number"))
+            group_key = prefix.casefold()
+
+            if group_key not in numeric_groups:
+                numeric_groups[group_key] = {
+                    "prefix": prefix,
+                    "numbers": set(),
+                }
+
+            numeric_groups[group_key]["numbers"].add(number)
+
+        if numeric_groups:
+            chosen_group = max(
+                numeric_groups.values(),
+                key=lambda group: (len(group["numbers"]), max(group["numbers"]))
+            )
+            prefix = chosen_group["prefix"]
+            next_number = max(chosen_group["numbers"]) + 1
+        else:
+            prefix = "v"
+            next_number = 1
+
+        existing_vertices = {str(vertex).strip().casefold() for vertex in vertices}
+        new_vertex = f"{prefix}{next_number}"
+        while new_vertex.casefold() in existing_vertices:
+            next_number += 1
+            new_vertex = f"{prefix}{next_number}"
         
         # Добавляем новую строку и столбец в матрицу
         current_df[new_vertex] = 0
@@ -1070,6 +1242,12 @@ class MainWindow(QMainWindow):
         
         self.subset_spinbox.setMaximum(len(vertices_updated))
         self.status_label.setText(f"Expanded matrix to {len(vertices_updated)}x{len(vertices_updated)}")
+        self.is_dirty = True
+        self.project.is_dirty = True
+        self.project.computed = False
+        self.project.results_df = None
+        self.export_button.setEnabled(False)
+        self._update_calc_button()
         self._update_undo_redo_buttons()
 
     def _shrink_matrix(self):
@@ -1137,6 +1315,12 @@ class MainWindow(QMainWindow):
         self.subset_spinbox.blockSignals(False)
         
         self.status_label.setText(f"Shrunk matrix to {len(vertices_updated)}x{len(vertices_updated)}")
+        self.is_dirty = True
+        self.project.is_dirty = True
+        self.project.computed = False
+        self.project.results_df = None
+        self.export_button.setEnabled(False)
+        self._update_calc_button()
         self._update_undo_redo_buttons()
 
     def _rename_vertices(self):
