@@ -25,8 +25,9 @@ build/
 *.pdb
 
 # -----------------------------
-# VS Code
+# IDEs
 # -----------------------------
+.idea/
 .vscode/
 *.code-workspace
 
@@ -36,3 +37,11 @@ build/
 Thumbs.db
 .DS_Store
 *.log
+
+# -----------------------------
+# EXE Files
+# -----------------------------
+*.exe
+*.exe.manifest
+*.manifest
+*.diff
