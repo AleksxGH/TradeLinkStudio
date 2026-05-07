@@ -31,6 +31,7 @@ from app.services.resource_utils import icon_path as resolve_icon_path, resource
 from app.services.validators import validate_project_name
 from app.ui.main_window import MainWindow
 from app.ui.new_project_dialogue import NewProjectDialog
+from app.services.logging_service import log_debug, log_error
 
 
 class HomeWindow(QWidget):
@@ -366,23 +367,56 @@ class HomeWindow(QWidget):
 
     def _load_user_data(self):
         """Load custom project paths from user_data.json"""
-        user_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data.json")
+        user_dir = os.path.join(self.paths.base_dir, "UserData")
+        try:
+            os.makedirs(user_dir, exist_ok=True)
+        except Exception:
+            pass
+        user_data_path = os.path.join(user_dir, "user_data.json")
+        legacy_user_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data.json")
         try:
             if os.path.exists(user_data_path):
                 with open(user_data_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
+                    # remove legacy file if it still exists
+                    if os.path.exists(legacy_user_data_path):
+                        try:
+                            os.remove(legacy_user_data_path)
+                        except Exception:
+                            pass
                     return data.get("custom_projects", [])
+            # if missing, create empty template
+            with open(user_data_path, "w", encoding="utf-8") as f:
+                json.dump({"custom_projects": []}, f, indent=2, ensure_ascii=False)
+            if os.path.exists(legacy_user_data_path):
+                try:
+                    os.remove(legacy_user_data_path)
+                except Exception:
+                    pass
         except Exception:
-            pass
+            log_error(f"Failed to load user_data.json: {user_data_path}")
         return []
 
     def _save_user_data(self, custom_projects):
         """Save custom project paths to user_data.json"""
-        user_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data.json")
+        user_dir = os.path.join(self.paths.base_dir, "UserData")
+        try:
+            os.makedirs(user_dir, exist_ok=True)
+        except Exception:
+            pass
+
+        user_data_path = os.path.join(user_dir, "user_data.json")
+        legacy_user_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data.json")
         try:
             with open(user_data_path, "w", encoding="utf-8") as f:
                 json.dump({"custom_projects": custom_projects}, f, indent=2, ensure_ascii=False)
+            if os.path.exists(legacy_user_data_path):
+                try:
+                    os.remove(legacy_user_data_path)
+                except Exception:
+                    pass
         except Exception as exc:
+            log_error(f"Failed to save user_data.json: {exc}")
             QMessageBox.warning(self, "Error", f"Failed to save user data: {exc}")
 
     def _add_custom_project(self, project_path):
@@ -463,7 +497,7 @@ class HomeWindow(QWidget):
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception:
             # Non-critical: copied directory is still usable via folder name.
-            pass
+            log_error(f"Failed to update project.json title for {project_file}")
 
     def refresh_projects_list(self):
         self.all_projects = []
@@ -477,6 +511,7 @@ class HomeWindow(QWidget):
                     if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, "data", "project.json")):
                         self.all_projects.append({"name": item, "path": item_path})
             except Exception as exc:
+                log_error(f"Failed to load projects from {projects_dir}: {exc}")
                 QMessageBox.warning(self, "Error", f"Failed to load projects: {exc}")
         
         # Load custom projects
@@ -613,6 +648,7 @@ class HomeWindow(QWidget):
         self.display_projects(filtered)
 
     def load_project(self, project_path):
+        log_debug(f"Load project requested: {project_path}")
         result = ProjectManager.load_project(project_path)
         if result is None:
             QMessageBox.critical(self, "Open project error", "Failed to open project.\nCheck the project folder structure.")
@@ -652,6 +688,7 @@ class HomeWindow(QWidget):
                 self._update_project_json_title(new_path, normalized_name)
                 self.refresh_projects_list()
             except Exception as exc:
+                log_error(f"Failed to rename project {old_path} -> {new_path}: {exc}")
                 QMessageBox.critical(self, "Error", f"Failed to rename: {exc}")
 
     def duplicate_project(self, project):
@@ -667,8 +704,10 @@ class HomeWindow(QWidget):
             self._ensure_project_registered(new_path)
             self._update_project_json_title(new_path, copy_name)
             self.refresh_projects_list()
+            log_debug(f"Project duplicated: {source_path} -> {new_path}")
         except Exception as exc:
-            QMessageBox.critical(self, "Error", f"Failed to duplicate: {exc}")
+                log_error(f"Failed to duplicate project {source_path} -> {new_path}: {exc}")
+                QMessageBox.critical(self, "Error", f"Failed to duplicate: {exc}")
 
     def delete_project(self, project):
         reply = QMessageBox.question(
@@ -685,7 +724,9 @@ class HomeWindow(QWidget):
                 self._ensure_project_unregistered(project["path"])
                 shutil.rmtree(project["path"])
                 self.refresh_projects_list()
+                log_debug(f"Project deleted: {project['path']}")
             except Exception as exc:
+                log_error(f"Failed to delete project {project['path']}: {exc}")
                 QMessageBox.critical(self, "Error", f"Failed to delete: {exc}")
 
     def _load_version(self):
@@ -704,6 +745,7 @@ class HomeWindow(QWidget):
 
     def new_project(self):
         if self.config.get("use_standard_dirs"):
+            log_debug("Create default project")
             project = ProjectManager.create_default_project(self.paths)
             self.main_window = MainWindow(project, self)
             self.main_window.show()
@@ -712,6 +754,7 @@ class HomeWindow(QWidget):
 
         dialog = NewProjectDialog(self)
         if dialog.exec_():
+            log_debug(f"Create custom project: {dialog.project_name} @ {dialog.project_dir}")
             project = ProjectManager.create_custom_project(dialog.project_name, dialog.project_dir)
             self._ensure_project_registered(project.project_dir)
             self.main_window = MainWindow(project, self)

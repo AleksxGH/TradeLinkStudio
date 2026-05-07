@@ -1,4 +1,5 @@
 import pandas as pd
+import copy
 from PyQt5.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -17,6 +18,7 @@ from PyQt5.QtWidgets import (
     QScrollArea
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from app.data.exporter import save_results
 from app.data.loader import read_data
@@ -29,6 +31,7 @@ from app.services.resource_utils import icon_path
 from app.services.validators import validate_project_name, validate_vertex_names
 from app.ui.dataframe_model import DataFrameModel
 from app.core.datastore import DataStore
+from app.services.logging_service import log_debug, log_error
 
 
 class MainWindow(QMainWindow):
@@ -334,8 +337,8 @@ class MainWindow(QMainWindow):
         self.weighted_visibility_button.setEnabled(True)
         self.normalized_visibility_button.setEnabled(True)
 
-    def _sync_indices_state(self):
-        current_state = self.datastore.current()
+    def _sync_indices_state(self, target_state=None):
+        current_state = target_state if target_state is not None else self.datastore.current()
         if current_state is None:
             return
 
@@ -366,10 +369,16 @@ class MainWindow(QMainWindow):
         self.project.is_dirty = True
         self.save_button.setEnabled(True)
         current_state = self.datastore.current()
-        if current_state is not None:
-            current_state["decimal_precision"] = value
+        if current_state is None:
+            return
+
+        new_state = copy.deepcopy(current_state)
+        new_state["decimal_precision"] = value
         self._refresh_indices_view()
-        self._sync_indices_state()
+        # Обновляем snapshot состояния с новым precision
+        self._sync_indices_state(new_state)
+        self.datastore.push(new_state)
+        self._update_undo_redo_buttons()
 
     def _on_indices_visibility_changed(self):
         self.project.show_weighted_pivotal = self.weighted_visibility_button.isChecked()
@@ -377,11 +386,17 @@ class MainWindow(QMainWindow):
         self.project.is_dirty = True
         self.save_button.setEnabled(True)
         current_state = self.datastore.current()
-        if current_state is not None:
-            current_state["show_weighted_pivotal"] = self.project.show_weighted_pivotal
-            current_state["show_normalized"] = self.project.show_normalized
+        if current_state is None:
+            return
+
+        new_state = copy.deepcopy(current_state)
+        new_state["show_weighted_pivotal"] = self.project.show_weighted_pivotal
+        new_state["show_normalized"] = self.project.show_normalized
         self._refresh_indices_view()
-        self._sync_indices_state()
+        # Обновляем snapshot состояния с флагами видимости
+        self._sync_indices_state(new_state)
+        self.datastore.push(new_state)
+        self._update_undo_redo_buttons()
 
 
 
@@ -468,6 +483,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Success", "File uploaded")
 
         except Exception as e:
+            log_error(f"Error uploading file {file_path}: {e}")
             QMessageBox.critical(self, "Error", str(e))
 
     def calculate_indices(self):
@@ -557,6 +573,7 @@ class MainWindow(QMainWindow):
             self._update_undo_redo_buttons()
 
         except Exception as e:
+            log_error(f"Error calculating indices: {e}")
             QMessageBox.critical(self, "Error", f"Error calculating indices:\n{str(e)}")
 
     def _on_subset_size_changed(self, value):
@@ -566,10 +583,11 @@ class MainWindow(QMainWindow):
         self.project.computed = False
         self.project.results_df = None
         self.export_button.setEnabled(False)
-        self._sync_current_state_from_ui()
         current_state = self.datastore.current()
         if current_state is not None:
-            self.datastore.push(current_state)
+            new_state = copy.deepcopy(current_state)
+            self._sync_current_state_from_ui(new_state)
+            self.datastore.push(new_state)
         self._update_calc_button()
         self._update_undo_redo_buttons()
 
@@ -580,10 +598,11 @@ class MainWindow(QMainWindow):
         self.project.computed = False
         self.project.results_df = None
         self.export_button.setEnabled(False)
-        self._sync_current_state_from_ui()
         current_state = self.datastore.current()
         if current_state is not None:
-            self.datastore.push(current_state)
+            new_state = copy.deepcopy(current_state)
+            self._sync_current_state_from_ui(new_state)
+            self.datastore.push(new_state)
         self._update_calc_button()
         self._update_undo_redo_buttons()
 
@@ -598,30 +617,78 @@ class MainWindow(QMainWindow):
 
     def on_undo(self):
         """Отмена последнего изменения"""
-        result = self.controller.undo()
-        if result is None:
+        state = self.controller.undo()
+        if state is None:
             QMessageBox.information(self, "Undo", "Nothing to undo")
             return
+
+        # Применяем состояние к UI (включая precision и флаги видимости)
+        self._apply_state_to_ui(state)
+        # Принудительно обновляем spinbox виджеты
+        self.precision_spinbox.update()
+        self.subset_spinbox.update()
         
-        state = self.datastore.current()
-        if state:
-            self._apply_state_to_ui(state)
-        
+        # Обрабатываем все pending события для визуального обновления
+        QApplication.processEvents()
+
+        # Убедимся, что текущее состояние datastore содержит ключи precision/subset/flags
+        try:
+            current = self.datastore.current()
+            if current is not None:
+                if "decimal_precision" in state:
+                    current["decimal_precision"] = state.get("decimal_precision")
+                if "subset_size" in state:
+                    current["subset_size"] = state.get("subset_size")
+                if "show_weighted_pivotal" in state:
+                    current["show_weighted_pivotal"] = state.get("show_weighted_pivotal")
+                if "show_normalized" in state:
+                    current["show_normalized"] = state.get("show_normalized")
+        except Exception:
+            pass
+
+        # Попробуем пересчитать индексы, если требуется (не прерываем работу при ошибке)
+        try:
+            self.controller.recompute()
+        except Exception:
+            pass
+
         self._update_undo_redo_buttons()
         self.is_dirty = True
         self._update_calc_button()
 
     def on_redo(self):
         """Повтор отменённого изменения"""
-        result = self.controller.redo()
-        if result is None:
+        state = self.controller.redo()
+        if state is None:
             QMessageBox.information(self, "Redo", "Nothing to redo")
             return
+
+        self._apply_state_to_ui(state)
+        # Принудительно обновляем spinbox виджеты
+        self.precision_spinbox.update()
+        self.subset_spinbox.update()
         
-        state = self.datastore.current()
-        if state:
-            self._apply_state_to_ui(state)
-        
+        # Обрабатываем все pending события для визуального обновления
+        QApplication.processEvents()
+        try:
+            current = self.datastore.current()
+            if current is not None:
+                if "decimal_precision" in state:
+                    current["decimal_precision"] = state.get("decimal_precision")
+                if "subset_size" in state:
+                    current["subset_size"] = state.get("subset_size")
+                if "show_weighted_pivotal" in state:
+                    current["show_weighted_pivotal"] = state.get("show_weighted_pivotal")
+                if "show_normalized" in state:
+                    current["show_normalized"] = state.get("show_normalized")
+        except Exception:
+            pass
+
+        try:
+            self.controller.recompute()
+        except Exception:
+            pass
+
         self._update_undo_redo_buttons()
         self.is_dirty = True
         self._update_calc_button()
@@ -668,6 +735,7 @@ class MainWindow(QMainWindow):
             )
 
         except Exception as e:
+            log_error(f"Export error saving to {file_path}: {e}")
             QMessageBox.critical(self, "Export Error", str(e))
 
     def save_project(self):
@@ -689,6 +757,7 @@ class MainWindow(QMainWindow):
                 f"Project {self.project.title} saved"
             )
         except Exception as e:
+            log_error(f"Saving project {self.project.title} failed: {e}")
             QMessageBox.critical(self, "Saving Error", str(e))
 
     def _show_quotas(self, quotas, vertices):
@@ -803,9 +872,11 @@ class MainWindow(QMainWindow):
         self._show_quotas(quotas, vertices)
         self._show_matrix(matrix, vertices)
 
-        self.precision_spinbox.blockSignals(True)
+        # Обновляем precision spinbox с явным отключением и обновлением
+        self.precision_spinbox.valueChanged.disconnect(self._on_precision_changed)
         self.precision_spinbox.setValue(precision)
-        self.precision_spinbox.blockSignals(False)
+        self.precision_spinbox.update()
+        self.precision_spinbox.valueChanged.connect(self._on_precision_changed)
 
         self.weighted_visibility_button.blockSignals(True)
         self.weighted_visibility_button.setChecked(show_weighted)
@@ -826,14 +897,16 @@ class MainWindow(QMainWindow):
         self.project.show_normalized = show_normalized
         self.project.computed = bool(state.get("indices") or state.get("indices_full"))
 
-        self.subset_spinbox.blockSignals(True)
+        # Обновляем subset spinbox с явным отключением и обновлением
+        self.subset_spinbox.valueChanged.disconnect(self._on_subset_size_changed)
         self.subset_spinbox.setMaximum(max(len(vertices), 1))
         self.subset_spinbox.setValue(min(subset_size, max(len(vertices), 1)))
-        self.subset_spinbox.blockSignals(False)
+        self.subset_spinbox.update()
+        self.subset_spinbox.valueChanged.connect(self._on_subset_size_changed)
 
-    def _sync_current_state_from_ui(self):
+    def _sync_current_state_from_ui(self, target_state=None):
         """Обновляет текущий snapshot в datastore перед сохранением"""
-        state = self.datastore.current()
+        state = target_state if target_state is not None else self.datastore.current()
         if state is None:
             return
 

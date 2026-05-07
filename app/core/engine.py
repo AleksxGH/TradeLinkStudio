@@ -1,4 +1,5 @@
 from app.core.indices_calculator import IndicesCalculator
+from app.services.logging_service import log_error
 
 
 class ComputeEngine:
@@ -47,8 +48,6 @@ class ComputeEngine:
             return result
 
         except Exception as e:
-            print(f"[ComputeEngine] Error: {e}")
-            import traceback
-            traceback.print_exc()
+            log_error(f"[ComputeEngine] Error: {e}")
             return None
 

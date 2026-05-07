@@ -1,6 +1,7 @@
 import networkx as nx
 from itertools import combinations
 import numpy as np
+from app.services.logging_service import log_error
 
 class IndicesCalculator:
     def __init__(self, graph, vertices, quotas, subset_size):
@@ -43,7 +44,7 @@ class IndicesCalculator:
         return copeland
 
     def _ensure_directed(self):
-        """Возвращает ориентированную версию графа, не изменяя исходный"""
+        """Возвращает ориентированную версию графа, не изменяя исходный."""
         if isinstance(self.graph, nx.DiGraph):
             return self.graph
         else:
@@ -80,7 +81,7 @@ class IndicesCalculator:
         
         Узел v в группе S считается pivotal, если:
         - sum(weights in S) >= quota (группа критична)
-        - sum(weights in S \ {v}) < quota (без v группа не критична)
+        - sum(weights in S \\ {v}) < quota (без v группа не критична)
         
         weighted_version=False: каждый pivotal-узел добавляет 1
         weighted_version=True: каждый pivotal-узел добавляет размер группы
@@ -130,7 +131,6 @@ class IndicesCalculator:
             self.copeland.clear()
 
             matrix = nx.to_numpy_array(self.graph, nodelist=self.vertices)
-            print(matrix)
 
             self.copeland = self.copeland_index()
             self.bundle = self.bundle_index()
@@ -140,9 +140,7 @@ class IndicesCalculator:
             self._computed = True
 
         except Exception as e:
-            print(f"[ERROR] calculate_all failed: {e}")
-            import traceback
-            traceback.print_exc()
+            log_error(f"[ERROR] calculate_all failed: {e}")
             self._computed = False
 
     # =========================

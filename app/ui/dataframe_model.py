@@ -1,4 +1,6 @@
 from PyQt5.QtCore import QAbstractTableModel, Qt
+from PyQt5.QtWidgets import QMessageBox
+from app.services.logging_service import log_debug, log_error
 
 class DataFrameModel(QAbstractTableModel):
 
@@ -43,7 +45,16 @@ class DataFrameModel(QAbstractTableModel):
             return False
 
         try:
-            float_value = float(value)
+            # Попытаемся конвертировать ввод в число
+            # Поддержим ввод с запятой (заменим на точку) с предупреждением
+            raw = value
+            if isinstance(raw, str) and "," in raw:
+                # Покажем предупреждение при использовании запятой как разделителя
+                log_debug(f"User entered comma as decimal separator: {raw}")
+                QMessageBox.warning(None, "Invalid format", "Please use '.' as decimal separator. Comma will be converted automatically.")
+                raw = raw.replace(',', '.')
+
+            float_value = float(raw)
             self._df.iloc[index.row(), index.column()] = float_value
             self.dataChanged.emit(index, index)
             
@@ -51,7 +62,10 @@ class DataFrameModel(QAbstractTableModel):
                 self._on_change()
             
             return True
-        except ValueError:
+        except Exception as exc:
+            # Неверный формат ввода — предупредим пользователя и залогируем
+            log_error(f"Invalid cell input: {value} -> {exc}")
+            QMessageBox.warning(None, "Invalid input", "Please enter a numeric value using digits and '.' as a decimal separator.")
             return False
 
     def flags(self, index):
@@ -66,9 +80,15 @@ class DataFrameModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return str(self._df.columns[section])
+                try:
+                    return str(self._df.columns[section])
+                except Exception:
+                    return ""
             else:
-                return str(self._df.index[section])
+                try:
+                    return str(self._df.index[section])
+                except Exception:
+                    return ""
         return None
 
     def get_dataframe(self):
