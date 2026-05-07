@@ -11,6 +11,8 @@ pyinstaller --onefile ^
             --windowed ^
             --icon=resources\icons\app.ico ^
             --add-data "resources;resources" ^
+            --add-data "style;style" ^
+            --add-data "app\version.json;app" ^
             main.py
 
 pause

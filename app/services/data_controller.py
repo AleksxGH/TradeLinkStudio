@@ -7,15 +7,16 @@ class DataController:
         self.engine = engine
         self.config = config
 
-    def set_state(self, matrix, vertices, quotas, subset_size, project_title=None):
+    def set_state(self, matrix, vertices, quotas, subset_size, **extra_state):
 
         state = {
             "matrix": matrix,
             "vertices": vertices,
             "quotas": quotas,
-            "subset_size": subset_size,
-            "project_title": project_title if project_title is not None else self.project.title
+            "subset_size": subset_size
         }
+
+        state.update(extra_state)
 
         self.datastore.push(state)
 
@@ -32,7 +33,6 @@ class DataController:
             state = {}
 
         state["matrix"] = matrix
-        state.setdefault("project_title", self.project.title)
 
         self.datastore.push(state)
 
@@ -49,7 +49,6 @@ class DataController:
             state = {}
 
         state["quotas"] = quotas
-        state.setdefault("project_title", self.project.title)
 
         self.datastore.push(state)
 
@@ -66,7 +65,6 @@ class DataController:
             state = {}
 
         state["vertices"] = vertices
-        state.setdefault("project_title", self.project.title)
 
         self.datastore.push(state)
 
@@ -83,7 +81,6 @@ class DataController:
             state = {}
 
         state["subset_size"] = subset_size
-        state.setdefault("project_title", self.project.title)
 
         self.datastore.push(state)
 

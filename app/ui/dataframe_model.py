@@ -2,11 +2,12 @@ from PyQt5.QtCore import QAbstractTableModel, Qt
 
 class DataFrameModel(QAbstractTableModel):
 
-    def __init__(self, df, editable=False, on_change=None):
+    def __init__(self, df, editable=False, on_change=None, precision=None):
         super().__init__()
         self._df = df.copy()
         self._editable = editable
         self._on_change = on_change
+        self._precision = precision
 
     def rowCount(self, parent=None):
         return self._df.shape[0]
@@ -31,7 +32,9 @@ class DataFrameModel(QAbstractTableModel):
 
             if f.is_integer():
                 return str(int(f))
-            return f"{f:.7f}".rstrip("0").rstrip(".")
+            if self._precision is None:
+                return f"{f:.7f}".rstrip("0").rstrip(".")
+            return f"{f:.{self._precision}f}".rstrip("0").rstrip(".")
 
         return None
 
@@ -63,15 +66,9 @@ class DataFrameModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                # Проверяем, что индекс в пределах размера DataFrame
-                if section < len(self._df.columns):
-                    return str(self._df.columns[section])
-                return None
+                return str(self._df.columns[section])
             else:
-                # Проверяем, что индекс в пределах размера DataFrame
-                if section < len(self._df.index):
-                    return str(self._df.index[section])
-                return None
+                return str(self._df.index[section])
         return None
 
     def get_dataframe(self):

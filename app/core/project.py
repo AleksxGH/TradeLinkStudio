@@ -5,9 +5,13 @@ class Project:
         self.title = title
 
         self.results_df = None
+        self.results_full_df = None
         self.vertices = []
         self.quotas = {}
         self.subset_size = 0
+        self.decimal_precision = 6
+        self.show_weighted_pivotal = True
+        self.show_normalized = True
 
         self.current_state_index = 0
         self.state_count = 0

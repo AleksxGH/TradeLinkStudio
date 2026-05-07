@@ -3,6 +3,7 @@ import PyQt5.QtWidgets
 from PyQt5.QtGui import QIcon
 import webbrowser
 import urllib.parse
+from app.services.resource_utils import icon_path, resource_path
 
 
 class AboutWindow(PyQt5.QtWidgets.QMainWindow):
@@ -13,7 +14,7 @@ class AboutWindow(PyQt5.QtWidgets.QMainWindow):
 
         self.setWindowTitle("TradeLink Studio - About")
         self.resize(1360, 820)
-        self.setWindowIcon(QIcon("resources/icons/app.ico"))
+        self.setWindowIcon(QIcon(icon_path("app.ico")))
 
         self._init_ui()
 
@@ -34,8 +35,7 @@ class AboutWindow(PyQt5.QtWidgets.QMainWindow):
 
         self.info_browser = PyQt5.QtWidgets.QTextBrowser()
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        html_path = os.path.join(base_dir, "..", "..", "resources", "ui", "about.html")
+        html_path = resource_path("resources", "ui", "about.html")
 
         with open(html_path, "r", encoding="utf-8") as file:
             html_content = file.read()

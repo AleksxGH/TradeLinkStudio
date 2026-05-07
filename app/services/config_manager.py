@@ -11,9 +11,6 @@ class ConfigManager:
 
         self.data = {
             "use_standard_dirs": True,
-            "weighted_mode": True,
-            "normalization": True,
-            "decimal_precision": 6,
 
             "use_default_project_path": True,
             "custom_project_path": "",
@@ -27,7 +24,21 @@ class ConfigManager:
             return self.data
 
         with open(self.config_path, "r", encoding="utf-8") as file:
-            self.data = json.load(file)
+            loaded = json.load(file)
+
+        removed_weighted = "weighted_mode" in loaded
+        removed_normalization = "normalization" in loaded
+        removed_precision = "decimal_precision" in loaded
+        loaded.pop("weighted_mode", None)
+        loaded.pop("normalization", None)
+        loaded.pop("decimal_precision", None)
+        merged = dict(self.data)
+        merged.update(loaded)
+        self.data = merged
+
+        if removed_precision or removed_weighted or removed_normalization:
+            self.save()
+
         return self.data
 
     def save(self):

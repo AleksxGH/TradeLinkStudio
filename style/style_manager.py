@@ -1,10 +1,11 @@
 import os
 from PyQt5.QtCore import QFile, QTextStream
 from PyQt5.QtGui import QFontDatabase
+from app.services.resource_utils import resource_path
 
 def load_fonts():
     """Load Open Sans fonts from resources/Open_Sans directory"""
-    font_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "Open_Sans", "static")
+    font_dir = resource_path("resources", "Open_Sans", "static")
     
     if not os.path.exists(font_dir):
         print(f"Font directory not found: {font_dir}")
@@ -27,9 +28,17 @@ def load_fonts():
         return False
 
 def load_styles(app, style_path="style/style.qss"):
-    if not os.path.isabs(style_path):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        style_path = os.path.join(base_dir, style_path)
+    if not style_path:
+        return False
+
+    resolved_style_path = style_path
+    if not resolved_style_path.endswith(".qss"):
+        resolved_style_path = f"{resolved_style_path}.qss"
+
+    if "/" in resolved_style_path or "\\" in resolved_style_path:
+        style_path = resource_path(*resolved_style_path.replace("\\", "/").split("/"))
+    else:
+        style_path = resource_path("style", resolved_style_path)
 
     if not os.path.exists(style_path):
         return False

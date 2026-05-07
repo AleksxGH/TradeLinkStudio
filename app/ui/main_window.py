@@ -25,6 +25,8 @@ from app.core.engine import ComputeEngine
 from app.services.config_manager import ConfigManager
 from app.services.data_controller import DataController
 from app.services.project_manager import ProjectManager
+from app.services.resource_utils import icon_path
+from app.services.validators import validate_project_name, validate_vertex_names
 from app.ui.dataframe_model import DataFrameModel
 from app.core.datastore import DataStore
 
@@ -53,9 +55,13 @@ class MainWindow(QMainWindow):
         # Флаг для отслеживания изменений
         self.is_dirty = False
 
+        self.project.decimal_precision = getattr(self.project, "decimal_precision", 6)
+        self.project.show_weighted_pivotal = getattr(self.project, "show_weighted_pivotal", True)
+        self.project.show_normalized = getattr(self.project, "show_normalized", True)
+
         self.setWindowTitle(f"TradeLink Studio - {self.project.title}")
         self.resize(1400, 800)
-        self.setWindowIcon(QIcon("/resources/icons/app.ico"))
+        self.setWindowIcon(QIcon(icon_path("app.ico")))
 
         self._init_ui()
         
@@ -77,20 +83,20 @@ class MainWindow(QMainWindow):
         
         # Создаём кнопки undo/redo с иконками
         self.undo_button = QPushButton()
-        self.undo_button.setIcon(QIcon("resources/icons/undo.png"))
+        self.undo_button.setIcon(QIcon(icon_path("undo.png")))
         self.undo_button.setToolTip("Undo (Ctrl+Z)")
         
         self.redo_button = QPushButton()
-        self.redo_button.setIcon(QIcon("resources/icons/redo.png"))
+        self.redo_button.setIcon(QIcon(icon_path("redo.png")))
         self.redo_button.setToolTip("Redo (Ctrl+Y)")
         
         self.calc_button = QPushButton("Calculate indices")
         self.export_button = QPushButton()
-        self.export_button.setIcon(QIcon("resources/icons/export_icon.png"))
+        self.export_button.setIcon(QIcon(icon_path("export_icon.png")))
         self.export_button.setToolTip("Export")
         
         self.save_button = QPushButton()
-        self.save_button.setIcon(QIcon("resources/icons/save.png"))
+        self.save_button.setIcon(QIcon(icon_path("save.png")))
         self.save_button.setToolTip("Save project")
         
         self.rename_vertices_button = QPushButton("Rename Vertices")
@@ -150,6 +156,16 @@ class MainWindow(QMainWindow):
         
         subset_layout.addWidget(subset_label)
         subset_layout.addWidget(self.subset_spinbox)
+
+        precision_label = QLabel("Precision:")
+        self.precision_spinbox = QSpinBox()
+        self.precision_spinbox.setMinimum(0)
+        self.precision_spinbox.setMaximum(10)
+        self.precision_spinbox.setValue(self.project.decimal_precision)
+        self.precision_spinbox.valueChanged.connect(self._on_precision_changed)
+
+        subset_layout.addWidget(precision_label)
+        subset_layout.addWidget(self.precision_spinbox)
         subset_layout.addStretch()
         main_layout.addLayout(subset_layout)
 
@@ -204,6 +220,24 @@ class MainWindow(QMainWindow):
         indices_label.setStyleSheet("font-weight: bold;")
         right_layout.addWidget(indices_label)
 
+        indices_controls_layout = QHBoxLayout()
+        self.weighted_visibility_button = QPushButton("PI' weighted")
+        self.weighted_visibility_button.setCheckable(True)
+        self.weighted_visibility_button.setChecked(self.project.show_weighted_pivotal)
+        self.weighted_visibility_button.clicked.connect(self._on_indices_visibility_changed)
+        self._mark_main_action_button(self.weighted_visibility_button)
+
+        self.normalized_visibility_button = QPushButton("Normalized data")
+        self.normalized_visibility_button.setCheckable(True)
+        self.normalized_visibility_button.setChecked(self.project.show_normalized)
+        self.normalized_visibility_button.clicked.connect(self._on_indices_visibility_changed)
+        self._mark_main_action_button(self.normalized_visibility_button)
+
+        indices_controls_layout.addWidget(self.weighted_visibility_button)
+        indices_controls_layout.addWidget(self.normalized_visibility_button)
+        indices_controls_layout.addStretch()
+        right_layout.addLayout(indices_controls_layout)
+
         self.indices_table = QTableView()
         self._configure_data_table(self.indices_table)
         right_layout.addWidget(self.indices_table)
@@ -239,6 +273,115 @@ class MainWindow(QMainWindow):
         table.setObjectName("dataTable")
         table.style().unpolish(table)
         table.style().polish(table)
+
+    def _dataframe_from_split(self, split_data):
+        if not split_data:
+            return pd.DataFrame()
+
+        try:
+            return pd.DataFrame(
+                split_data.get("data", []),
+                index=split_data.get("index", []),
+                columns=split_data.get("columns", []),
+            )
+        except Exception:
+            return pd.DataFrame()
+
+    def _build_indices_dataframe(self, result, vertices, subset_size):
+        data = {}
+        data["Copeland"] = [result.get("copeland", {}).get(vertex, 0) for vertex in vertices]
+        data["Copeland (norm)"] = result.get("copeland_norm", [])
+
+        bundle_col = f"BI (s={subset_size})"
+        data[bundle_col] = [result.get("bundle", {}).get(vertex, 0) for vertex in vertices]
+        data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
+
+        pivotal_col = f"PI (s={subset_size})"
+        data[pivotal_col] = [result.get("pivotal", {}).get(vertex, 0) for vertex in vertices]
+        data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
+
+        pi_prime_col = f"PI' (w, s={subset_size})"
+        data[pi_prime_col] = [result.get("pi_prime", {}).get(vertex, 0) for vertex in vertices]
+        data[f"{pi_prime_col} (norm)"] = result.get("pi_prime_norm", [])
+
+        return pd.DataFrame(data, index=vertices)
+
+    def _apply_indices_visibility(self, full_df, precision=None, include_weighted=None, include_normalized=None):
+        if full_df is None or full_df.empty:
+            return pd.DataFrame()
+
+        if precision is None:
+            precision = self.precision_spinbox.value() if hasattr(self, "precision_spinbox") else 6
+
+        if include_weighted is None:
+            include_weighted = self.weighted_visibility_button.isChecked() if hasattr(self, "weighted_visibility_button") else True
+
+        if include_normalized is None:
+            include_normalized = self.normalized_visibility_button.isChecked() if hasattr(self, "normalized_visibility_button") else True
+
+        visible_columns = []
+        for column in full_df.columns:
+            if column.startswith("PI'") and not include_weighted:
+                continue
+            if column.endswith(" (norm)") and not include_normalized:
+                continue
+            visible_columns.append(column)
+
+        view_df = full_df.loc[:, visible_columns].copy()
+        return view_df.round(precision)
+
+    def _update_indices_visibility_controls(self):
+        self.weighted_visibility_button.setEnabled(True)
+        self.normalized_visibility_button.setEnabled(True)
+
+    def _sync_indices_state(self):
+        current_state = self.datastore.current()
+        if current_state is None:
+            return
+
+        current_state["decimal_precision"] = self.precision_spinbox.value()
+        current_state["show_weighted_pivotal"] = self.weighted_visibility_button.isChecked()
+        current_state["show_normalized"] = self.normalized_visibility_button.isChecked()
+
+        if self.project.results_full_df is not None:
+            current_state["indices_full"] = self.project.results_full_df.to_dict(orient="split")
+
+        if self.project.results_df is not None:
+            current_state["indices"] = self.project.results_df.to_dict(orient="split")
+
+    def _refresh_indices_view(self):
+        current_state = self.datastore.current()
+        if current_state is None:
+            return
+
+        full_split = current_state.get("indices_full") or current_state.get("indices")
+        full_df = self._dataframe_from_split(full_split)
+        if full_df.empty:
+            return
+
+        self._show_indices(current_state)
+
+    def _on_precision_changed(self, value):
+        self.project.decimal_precision = value
+        self.project.is_dirty = True
+        self.save_button.setEnabled(True)
+        current_state = self.datastore.current()
+        if current_state is not None:
+            current_state["decimal_precision"] = value
+        self._refresh_indices_view()
+        self._sync_indices_state()
+
+    def _on_indices_visibility_changed(self):
+        self.project.show_weighted_pivotal = self.weighted_visibility_button.isChecked()
+        self.project.show_normalized = self.normalized_visibility_button.isChecked()
+        self.project.is_dirty = True
+        self.save_button.setEnabled(True)
+        current_state = self.datastore.current()
+        if current_state is not None:
+            current_state["show_weighted_pivotal"] = self.project.show_weighted_pivotal
+            current_state["show_normalized"] = self.project.show_normalized
+        self._refresh_indices_view()
+        self._sync_indices_state()
 
 
 
@@ -288,6 +431,9 @@ class MainWindow(QMainWindow):
                 vertices=vertices,
                 quotas=quotas,
                 subset_size=subset_size,
+                decimal_precision=self.precision_spinbox.value(),
+                show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
+                show_normalized=self.normalized_visibility_button.isChecked(),
                 project_title=self.project.title
             )
 
@@ -300,6 +446,12 @@ class MainWindow(QMainWindow):
             self.subset_spinbox.blockSignals(True)
             self.subset_spinbox.setValue(subset_size)
             self.subset_spinbox.blockSignals(False)
+
+            self.precision_spinbox.blockSignals(True)
+            self.precision_spinbox.setValue(self.project.decimal_precision)
+            self.precision_spinbox.blockSignals(False)
+
+            self._update_indices_visibility_controls()
 
             self.save_button.setEnabled(True)
             self.calc_button.setEnabled(True)  # Активна сразу после загрузки
@@ -371,51 +523,32 @@ class MainWindow(QMainWindow):
             vertices = new_state.get("vertices", [])
             subset_size = new_state.get("subset_size", 0)
 
-            weighted_mode = self.config.get("weighted_mode")
-            normalization = self.config.get("normalization")
+            current_state = self.datastore.current()
+            if current_state is not None:
+                current_state["decimal_precision"] = self.precision_spinbox.value()
+                current_state["show_weighted_pivotal"] = self.weighted_visibility_button.isChecked()
+                current_state["show_normalized"] = self.normalized_visibility_button.isChecked()
 
-            df_data = {}
-            norm_data = {}
+            full_df = self._build_indices_dataframe(result, vertices, subset_size)
+            current_state = self.datastore.current()
+            if current_state is not None:
+                current_state["indices_full"] = full_df.to_dict(orient="split")
 
-            # ===== BASE INDICES =====
-            df_data["Copeland"] = list(result.get("copeland", {}).values())
-            if normalization:
-                norm_data["Copeland (norm)"] = result.get("copeland_norm", [])
+            self._show_indices(current_state)
 
-            bundle_col = f"BI (s={subset_size})"
-            df_data[bundle_col] = list(result.get("bundle", {}).values())
-            if normalization:
-                norm_data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
-
-            pivotal_col = f"PI (s={subset_size})"
-            df_data[pivotal_col] = list(result.get("pivotal", {}).values())
-            if normalization:
-                norm_data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
-
-            if weighted_mode:
-                pi_prime_col = f"PI' (w, s={subset_size})"
-                df_data[pi_prime_col] = list(result.get("pi_prime", {}).values())
-                if normalization:
-                    norm_data[f"{pi_prime_col} (norm)"] = result.get("pi_prime_norm", [])
-
-            final_data = {**df_data, **norm_data}
-
-            df = pd.DataFrame(final_data, index=vertices)
-
-            self.project.results_df = df
+            self.project.results_df = self.indices_table.model().get_dataframe() if hasattr(self.indices_table.model(), "get_dataframe") else None
+            self.project.results_full_df = full_df
             self.project.vertices = vertices
             self.project.quotas = quotas
             self.project.subset_size = subset_size
+            self.project.decimal_precision = self.precision_spinbox.value()
+            self.project.show_weighted_pivotal = self.weighted_visibility_button.isChecked()
+            self.project.show_normalized = self.normalized_visibility_button.isChecked()
             self.project.computed = True
 
-            current_state = self.datastore.current()
-            if current_state is not None:
-                current_state["indices"] = df.to_dict(orient="split")
+            if current_state is not None and self.project.results_df is not None:
+                current_state["indices"] = self.project.results_df.to_dict(orient="split")
 
-            # Используем нередактируемую модель для результатов
-            self.indices_table.setModel(DataFrameModel(df, editable=False))
-            self.indices_table.resizeColumnsToContents()
-            self.export_button.setEnabled(True)
             
             # Сброс флага грязных данных
             self.is_dirty = False
@@ -592,33 +725,45 @@ class MainWindow(QMainWindow):
         self.matrix_table.setModel(self.matrix_model)
         self.matrix_table.resizeColumnsToContents()
 
-    def _show_indices(self, indices_data):
-        """Отображает вычисленные индексы, если они есть"""
-        if not indices_data:
-            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
+    def _show_indices(self, state):
+        """Отображает вычисленные индексы с учетом текущих флагов видимости и precision."""
+        if not state:
+            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False, precision=self.precision_spinbox.value()))
             self.export_button.setEnabled(False)
             self.project.results_df = None
+            self.project.results_full_df = None
             self.project.vertices = []
             self.project.quotas = {}
             self.project.subset_size = 0
             self.project.computed = False
             return
 
-        try:
-            df = pd.DataFrame(
-                indices_data.get("data", []),
-                index=indices_data.get("index", []),
-                columns=indices_data.get("columns", [])
-            )
-        except Exception:
-            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False))
+        full_split = state.get("indices_full") or state.get("indices")
+        full_df = self._dataframe_from_split(full_split)
+        if full_df.empty:
+            self.indices_table.setModel(DataFrameModel(pd.DataFrame(), editable=False, precision=self.precision_spinbox.value()))
             self.export_button.setEnabled(False)
+            self.project.results_df = None
+            self.project.results_full_df = None
+            self.project.computed = False
             return
 
-        self.indices_table.setModel(DataFrameModel(df, editable=False))
+        precision = state.get("decimal_precision", self.precision_spinbox.value())
+        show_weighted = state.get("show_weighted_pivotal", self.weighted_visibility_button.isChecked())
+        show_normalized = state.get("show_normalized", self.normalized_visibility_button.isChecked())
+
+        df = self._apply_indices_visibility(
+            full_df,
+            precision=precision,
+            include_weighted=show_weighted,
+            include_normalized=show_normalized,
+        )
+
+        self.indices_table.setModel(DataFrameModel(df, editable=False, precision=precision))
         self.indices_table.resizeColumnsToContents()
         self.export_button.setEnabled(not df.empty)
-        self.project.results_df = df
+        self.project.results_full_df = full_df.copy()
+        self.project.results_df = df.copy()
         self.project.vertices = list(df.index)
         self.project.computed = not df.empty
 
@@ -626,6 +771,10 @@ class MainWindow(QMainWindow):
         if current_state is not None:
             self.project.quotas = current_state.get("quotas", {})
             self.project.subset_size = current_state.get("subset_size", 0)
+
+        self.project.decimal_precision = precision
+        self.project.show_weighted_pivotal = show_weighted
+        self.project.show_normalized = show_normalized
 
     def _apply_state_to_ui(self, state):
         """Синхронизирует интерфейс с сохраненным состоянием"""
@@ -647,24 +796,35 @@ class MainWindow(QMainWindow):
         vertices = state.get("vertices", [])
         matrix = state.get("matrix")
         subset_size = state.get("subset_size", 0)
+        precision = state.get("decimal_precision", self.project.decimal_precision)
+        show_weighted = state.get("show_weighted_pivotal", self.project.show_weighted_pivotal)
+        show_normalized = state.get("show_normalized", self.project.show_normalized)
 
         self._show_quotas(quotas, vertices)
         self._show_matrix(matrix, vertices)
-        self._show_indices(state.get("indices"))
+
+        self.precision_spinbox.blockSignals(True)
+        self.precision_spinbox.setValue(precision)
+        self.precision_spinbox.blockSignals(False)
+
+        self.weighted_visibility_button.blockSignals(True)
+        self.weighted_visibility_button.setChecked(show_weighted)
+        self.weighted_visibility_button.blockSignals(False)
+
+        self.normalized_visibility_button.blockSignals(True)
+        self.normalized_visibility_button.setChecked(show_normalized)
+        self.normalized_visibility_button.blockSignals(False)
+
+        self._update_indices_visibility_controls()
+        self._show_indices(state)
 
         self.project.quotas = quotas
         self.project.vertices = vertices
         self.project.subset_size = subset_size
-        self.project.computed = bool(state.get("indices"))
-        if self.project.results_df is None and state.get("indices"):
-            try:
-                self.project.results_df = pd.DataFrame(
-                    state["indices"].get("data", []),
-                    index=state["indices"].get("index", []),
-                    columns=state["indices"].get("columns", [])
-                )
-            except Exception:
-                self.project.results_df = None
+        self.project.decimal_precision = precision
+        self.project.show_weighted_pivotal = show_weighted
+        self.project.show_normalized = show_normalized
+        self.project.computed = bool(state.get("indices") or state.get("indices_full"))
 
         self.subset_spinbox.blockSignals(True)
         self.subset_spinbox.setMaximum(max(len(vertices), 1))
@@ -697,6 +857,9 @@ class MainWindow(QMainWindow):
         state["quotas"] = {col: quotas_df.at[0, col] for col in quotas_df.columns}
         state["subset_size"] = self.subset_spinbox.value()
         state["project_title"] = self.project.title
+        state["decimal_precision"] = self.precision_spinbox.value()
+        state["show_weighted_pivotal"] = self.weighted_visibility_button.isChecked()
+        state["show_normalized"] = self.normalized_visibility_button.isChecked()
 
         if self.is_dirty:
             state.pop("indices", None)
@@ -705,6 +868,9 @@ class MainWindow(QMainWindow):
             if hasattr(indices_model, "get_dataframe"):
                 indices_df = indices_model.get_dataframe()
                 state["indices"] = indices_df.to_dict(orient="split")
+
+        if self.project.results_full_df is not None:
+            state["indices_full"] = self.project.results_full_df.to_dict(orient="split")
 
     def _initialize_empty_tables(self):
         """Инициализирует пустые таблицы для нового проекта"""
@@ -737,6 +903,9 @@ class MainWindow(QMainWindow):
             vertices=vertices,
             quotas=quotas_data,
             subset_size=2,
+            decimal_precision=self.precision_spinbox.value(),
+            show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
+            show_normalized=self.normalized_visibility_button.isChecked(),
             project_title=self.project.title
         )
         
@@ -750,6 +919,12 @@ class MainWindow(QMainWindow):
         self.subset_spinbox.blockSignals(True)
         self.subset_spinbox.setValue(2)
         self.subset_spinbox.blockSignals(False)
+
+        self.precision_spinbox.blockSignals(True)
+        self.precision_spinbox.setValue(self.project.decimal_precision)
+        self.precision_spinbox.blockSignals(False)
+
+        self._update_indices_visibility_controls()
         
         self.status_label.setText(f"Empty project | Vertices: {len(vertices)}")
         self.save_button.setEnabled(True)
@@ -810,6 +985,9 @@ class MainWindow(QMainWindow):
             vertices=vertices_updated,
             quotas=quotas,
             subset_size=self.subset_spinbox.value(),
+            decimal_precision=self.precision_spinbox.value(),
+            show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
+            show_normalized=self.normalized_visibility_button.isChecked(),
             project_title=self.project.title
         )
         
@@ -870,6 +1048,9 @@ class MainWindow(QMainWindow):
             vertices=vertices_updated,
             quotas=quotas,
             subset_size=subset_value,
+            decimal_precision=self.precision_spinbox.value(),
+            show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
+            show_normalized=self.normalized_visibility_button.isChecked(),
             project_title=self.project.title
         )
         
@@ -936,17 +1117,13 @@ class MainWindow(QMainWindow):
         dialog.setLayout(layout)
         
         if dialog.exec_():
-            new_names = {old: name_inputs[old].text().strip() for old in vertices}
-            
-            # Проверяем пустые имена
-            if any(not name for name in new_names.values()):
-                QMessageBox.warning(self, "Error", "Vertex names cannot be empty")
+            raw_names = [name_inputs[old].text() for old in vertices]
+            is_valid_names, error_message, normalized_names = validate_vertex_names(raw_names)
+            if not is_valid_names:
+                QMessageBox.warning(self, "Error", error_message)
                 return
-            
-            # Проверяем дубликаты
-            if len(set(new_names.values())) != len(new_names):
-                QMessageBox.warning(self, "Error", "Vertex names must be unique")
-                return
+
+            new_names = {old: new for old, new in zip(vertices, normalized_names)}
             
             # Переименовываем в датафреймах и графе
             quotas_df = self.quotas_model.get_dataframe()
@@ -973,6 +1150,9 @@ class MainWindow(QMainWindow):
                 vertices=new_vertices,
                 quotas=quotas,
                 subset_size=state.get("subset_size", 2),
+                decimal_precision=self.precision_spinbox.value(),
+                show_weighted_pivotal=self.weighted_visibility_button.isChecked(),
+                show_normalized=self.normalized_visibility_button.isChecked(),
                 project_title=self.project.title
             )
             
@@ -993,10 +1173,17 @@ class MainWindow(QMainWindow):
         )
         
         if ok and new_name.strip():
-            new_name = new_name.strip()
+            is_valid_name, error_message, normalized_name = validate_project_name(new_name)
+            if not is_valid_name:
+                QMessageBox.warning(
+                    self,
+                    "Rename Project",
+                    error_message
+                )
+                return
 
             try:
-                ProjectManager.rename_project_directory(self.project, new_name)
+                ProjectManager.rename_project_directory(self.project, normalized_name)
             except FileExistsError:
                 QMessageBox.warning(
                     self,

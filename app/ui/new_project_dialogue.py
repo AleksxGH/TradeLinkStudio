@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QPushButton,
     QFileDialog, QMessageBox
 )
+from app.services.validators import validate_project_name
 
 class NewProjectDialog(QDialog):
 
@@ -78,25 +79,16 @@ class NewProjectDialog(QDialog):
         name = self.name_input.text().strip()
         directory = self.dir_input.text().strip()
 
-        if not name:
-            QMessageBox.warning(self, "Error", "Project name cannot be empty")
+        is_valid_name, error_message, normalized_name = validate_project_name(name)
+        if not is_valid_name:
+            QMessageBox.warning(self, "Error", error_message)
             return
 
         if not directory:
             QMessageBox.warning(self, "Error", "Select project directory")
             return
 
-        # Проверяем допустимость имени папки
-        invalid_chars = r'<>:"/\|?*'
-        if any(c in name for c in invalid_chars):
-            QMessageBox.warning(
-                self,
-                "Error",
-                "Project name contains invalid characters"
-            )
-            return
-
-        full_path = os.path.join(directory, name)
+        full_path = os.path.join(directory, normalized_name)
 
         if os.path.exists(full_path):
             QMessageBox.warning(
@@ -107,7 +99,7 @@ class NewProjectDialog(QDialog):
             return
 
         # Сохраняем результат
-        self.project_name = name
+        self.project_name = normalized_name
         self.project_dir = directory
 
         self.accept()

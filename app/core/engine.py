@@ -11,7 +11,7 @@ class ComputeEngine:
         
         Args:
             state: словарь с ключами matrix, vertices, quotas, subset_size
-            config: настройки приложения (weighted_mode, normalization)
+            config: настройки приложения
             
         Returns:
             словарь с результатами вычисления или None при ошибке
@@ -38,12 +38,11 @@ class ComputeEngine:
                 "pi_prime": calculator.get_pi_prime()
             }
 
-            # Добавляем нормализованные версии если включена нормализация
-            if config and config.get("normalization"):
-                result["copeland_norm"] = IndicesCalculator.get_indices_shares(result["copeland"])
-                result["bundle_norm"] = IndicesCalculator.get_indices_shares(result["bundle"])
-                result["pivotal_norm"] = IndicesCalculator.get_indices_shares(result["pivotal"])
-                result["pi_prime_norm"] = IndicesCalculator.get_indices_shares(result["pi_prime"])
+            # Нормализованные версии считаем всегда; показ управляется UI-переключателями.
+            result["copeland_norm"] = IndicesCalculator.get_indices_shares(result["copeland"])
+            result["bundle_norm"] = IndicesCalculator.get_indices_shares(result["bundle"])
+            result["pivotal_norm"] = IndicesCalculator.get_indices_shares(result["pivotal"])
+            result["pi_prime_norm"] = IndicesCalculator.get_indices_shares(result["pi_prime"])
 
             return result
 
