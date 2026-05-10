@@ -160,17 +160,17 @@ Dependencies from requirements.txt:
 1. Create and activate a virtual environment.
 2. Install dependencies:
 
-   pip install -r requirements.txt
+   ```pip install -r requirements.txt```
 
 3. Run the application:
 
-   python main.py
+   ```python main.py```
 
 ## EXE Build (PyInstaller)
 
-Use the script:
+Run the script:
 
-- build_exe.bat
+ ```./build_exe.bat```
 
 What the script does:
 - activates venv (if found);
