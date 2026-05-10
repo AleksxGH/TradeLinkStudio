@@ -1,74 +1,75 @@
 # TradeLink Studio
 
-  **TradeLink Studio** — desktop приложение для вычисления и анализа индексов влияния в ориентированных взвешенных графах. Поддерживает импорт данных из `.xlsx` и `.csv`, интерактивное редактирование матрицы и экспорты результатов в формате `.xlsx`.
+  **TradeLink Studio** — a desktop application for computing and analyzing influence indices in directed weighted graphs. Supports data import from `.xlsx` and `.csv`, interactive matrix editing, and result export in `.xlsx` format.
 
-  **Автор:** Мищенко Александр, студент 2 курса, НИУ "Высшая школа экономики",факультет компьютерных наук, ОП «Программная инженерия».
+  **Author:** Mishchenko Alexander, 2nd year student, HSE University, Faculty of Computer Science, Software Engineering Program.
 
-  **Контакты для связи:**  admishchenko@edu.hse.ru
+  **Contact:** admishchenko@edu.hse.ru
 
-  Приложение разработано в рамках курсовой работы на 2 году обучения, 2025-2026 уч.год
-  ## Краткое описание функционала
+  Application developed as a coursework project in the 2nd year of study, academic year 2025-2026.
 
-  - Импорт данных из XLSX и CSV (см. раздел «Формат входных данных»).
-  - Расчёт индексов: Copeland, Bundle, Pivotal, PI' (взвешенный Pivotal) и их нормализованные версии.
-  - Экспорт результатов в XLSX.
-  - Undo/Redo, редактирование квот и имён вершин, настройка `subset_size (k)`.
+  ## Feature Overview
 
-  ## Технологический стек
+  - Data import from XLSX and CSV (see "Input Data Format" section).
+  - Index calculation: Copeland, Bundle, Pivotal, PI' (weighted Pivotal), and their normalized versions.
+  - Result export to XLSX.
+  - Undo/Redo, quota and vertex name editing, `subset_size (k)` configuration.
 
-  | Компонент | Библиотека / Технология | Назначение |
+  ## Technology Stack
+
+  | Component | Library / Technology | Purpose |
   |---|---:|---|
-  | Язык | Python 3.12 | Основной язык приложения |
-  | GUI | PyQt5 | Интерфейс пользователя |
-  | Табличные данные | pandas, openpyxl | Чтение/запись XLSX, подготовка таблиц |
-  | Числа и матрицы | numpy | Быстрые численные операции |
-  | Графы | networkx | Представление и итерации по графу |
-  | Парсинг CSV | встроенный csv, кодировки | Надёжное чтение CSV с fallback |
+  | Language | Python 3.12 | Main application language |
+  | GUI | PyQt5 | User interface |
+  | Tabular data | pandas, openpyxl | XLSX read/write, table preparation |
+  | Numbers and matrices | numpy | Fast numerical operations |
+  | Graphs | networkx | Graph representation and iteration |
+  | CSV parsing | Built-in csv, encodings | Reliable CSV reading with fallback |
 
-  Зависимости перечислены в `requirements.txt`.
+  Dependencies are listed in `requirements.txt`.
 
-  ## Расчёт индексов
+  ## Index Calculation
 
-**Индекс Copeland** — сумма входящих весов рёбер для каждой вершины.
+**Copeland Index** — the sum of incoming edge weights for each vertex.
 
-**Индекс Bundle** — количество критических подмножеств входящих соседей размером от 1 до k. Подмножество считается критическим, если сумма его весов больше или равна квоте вершины.
+**Bundle Index** — the number of critical subsets of incoming neighbors of size from 1 to k. A subset is considered critical if the sum of its weights is greater than or equal to the vertex quota.
 
-**Индекс Pivotal** — количество появлений вершин как pivotal внутри критических подмножеств. Вершина считается pivotal, если её удаление делает подмножество некритическим. Каждое появление учитывается как 1.
+**Pivotal Index** — the number of occurrences of vertices as pivotal within critical subsets. A vertex is considered pivotal if its removal makes the subset non-critical. Each occurrence counts as 1.
 
-**Взвешенный Pivotal индекс** — используется та же система критических подмножеств, но каждое появление pivotal-вершины даёт вклад, равный размеру подмножества.
+**Weighted Pivotal Index** — uses the same critical subset system, but each occurrence of a pivotal vertex contributes a value equal to the subset size.
 
 ---
 
-### Нормализация
+### Normalization
 
 ```
-нормализованное_значение = значение / сумма всех значений данного индекса
+normalized_value = value / sum of all values of the same index
 ```
 
-Если сумма всех значений равна 0, все нормализованные значения равны 0.
+If the sum of all values equals 0, all normalized values equal 0.
 
 
 
-  ## Формат входных данных
+  ## Input Data Format
 
-  В документации приложения (и в `resources/ui/help.html`) формат описан подробно; ниже — точные требования и примеры.
+  The application documentation (and `resources/ui/help.html`) describes the format in detail; below are precise requirements and examples.
 
-  ### XLSX (фиксированный layout)
+  ### XLSX (Fixed Layout)
 
-  Точечные позиции, которые использует загрузчик (`pandas.read_excel(header=None)`):
+  Exact positions used by the loader (`pandas.read_excel(header=None)`):
 
-  | Ячейка | Содержимое | Тип |
+  | Cell | Content | Type |
   |---|---|---:|
-  | B1 (строка 0, колонка 1) | Число вершин (опционально) $N$ | Integer |
+  | B1 (row 0, column 1) | Number of vertices (optional) $N$ | Integer |
   | D2 (1,3) | `subset_size` ($k$) | Integer |
-  | F2 и далее (1,5...) | Квоты, N значений | N float |
-  | B3 и далее (2,1...) | Горизонтальные имена вершин | N строк |
-  | A4 и далее (3+,0) | Вертикальные имена вершин | N строк |
-  | B4.. (3..3+N, 1..1+N) | Матрица смежности | N×N числа |
+  | F2 onwards (1,5...) | Quotas, N values | N float |
+  | B3 onwards (2,1...) | Horizontal vertex names | N strings |
+  | A4 onwards (3+,0) | Vertical vertex names | N strings |
+  | B4.. (3..3+N, 1..1+N) | Adjacency matrix | N×N numbers |
 
-  Числа могут быть с десятичной запятой или точкой; диагональные элементы обычно 0.
+  Numbers can have decimal comma or period; diagonal elements are typically 0.
 
-  **Пример (N=3, k=2):**
+  **Example (N=3, k=2):**
 
   
 | N= | 3 |   |   |   |   |   |   |
@@ -82,9 +83,9 @@
 
   ### CSV
 
-  CSV формат ожидает первую строку с горизонтальными именами вершин и меткой `quota` в последней колонке. Каждый последующий ряд — строка матрицы с квотой в конце.
+  CSV format expects the first row with horizontal vertex names and a `quota` label in the last column. Each subsequent row is a matrix row with quota at the end.
 
-  Пример CSV (точно как в Help page):
+  Example CSV (exactly as in Help page):
 
   ```
   v1;v2;v3;quota
@@ -93,97 +94,97 @@
   4,2;2,0;0;2,8
   ```
 
-  Правила:
+  Rules:
 
-  - Заголовок: имена вершин, последняя колонка — `quota`.
-  - Строки: либо `name;w1;...;wN;quota`, либо `w1;...;wN;quota` (без ведущего имени) — loader поддерживает оба варианта.
-  - Пустые ячейки матрицы трактуются как 0.
-  - В качестве **разделителя** рекомендуется использовать `;`
-  - Кодировки: `utf-8`, `latin-1`, `utf-16` (fallback).
+  - Header: vertex names, last column is `quota`.
+  - Rows: either `name;w1;...;wN;quota` or `w1;...;wN;quota` (without leading name) — the loader supports both variants.
+  - Empty matrix cells are treated as 0.
+  - **Delimiter** recommendation: use `;`
+  - Encodings: `utf-8`, `latin-1`, `utf-16` (fallback).
 
 
-## Экспорт результата (XLSX)
+## Result Export (XLSX)
 
-Экспортер формирует таблицу, совместимую с логикой чтения `.xlsx` файлов:
+The exporter generates a table compatible with `.xlsx` file reading logic:
 
-- записывает базовые метаданные (N, subset size, quotas);
-- записывает вершины и матрицу;
-- добавляет колонки индексов справа от матрицы;
-- в случае проблем сохранения пытается альтернативное имя с timestamp.
+- writes basic metadata (N, subset size, quotas);
+- writes vertices and matrix;
+- adds index columns to the right of the matrix;
+- in case of save issues, attempts an alternative name with timestamp.
 
-## UI и UX
+## UI and UX
 
 ###  HomeWindow
 
-- Экран приветствия.
-- Список проектов (стандартные + кастомные).
-- Поиск проектов.
-- Создание/открытие/удаление/копирование/переименование проекта.
-- Встроенные страницы Settings и Help.
+- Welcome screen.
+- Project list (standard + custom).
+- Project search.
+- Project creation/opening/deletion/copying/renaming.
+- Built-in Settings and Help pages.
 
 ### MainWindow
 
-- Тулбар: Home, Load Data, Undo, Redo, Calculate, Export, Save.
-- Контролы параметров: subset size, precision.
-- Таблицы: Quotas, Input Matrix, Calculated Indices.
-- Кнопки управления видимостью: PI' weighted, Normalized data.
-- Поддержка dirty-state и блокировок кнопок в зависимости от состояния.
+- Toolbar: Home, Load Data, Undo, Redo, Calculate, Export, Save.
+- Parameter controls: subset size, precision.
+- Tables: Quotas, Input Matrix, Calculated Indices.
+- Visibility control buttons: PI' weighted, Normalized data.
+- Dirty-state support and button locking depending on state.
 
-## Логирование и обработка ошибок
+## Logging and Error Handling
 
-- Инициализация логирования в main.py при старте.
-- Перехват необработанных исключений через sys.excepthook.
-- Логирование уровней DEBUG/ERROR в app_actions.log.
-- Показ QMessageBox при критических ошибках UI/цикла приложения.
-- Очистка логов и active-flag при штатном завершении.
+- Logging initialization in main.py on startup.
+- Unhandled exception catching through sys.excepthook.
+- DEBUG/ERROR level logging to app_actions.log.
+- QMessageBox display on critical UI/application cycle errors.
+- Log cleanup and active-flag clearing on normal exit.
 
-## Установка и запуск
+## Installation and Running
 
-### Требования
+### Requirements
 
-- Python 3.12 (рекомендуется, в проекте используется 3.12.6)
+- Python 3.12 (recommended, project uses 3.12.6)
 - Windows 10/11
 
-Зависимости из requirements.txt:
+Dependencies from requirements.txt:
 - PyQt5==5.15.9
 - pandas==2.1.1
 - numpy==1.26.1
 - openpyxl==3.1.3
 
-### Установка
+### Installation
 
-1. Создать и активировать виртуальное окружение.
-2. Установить зависимости:
+1. Create and activate a virtual environment.
+2. Install dependencies:
 
    pip install -r requirements.txt
 
-3. Запустить приложение:
+3. Run the application:
 
    python main.py
 
-## Сборка EXE (PyInstaller)
+## EXE Build (PyInstaller)
 
-Используйте скрипт:
+Use the script:
 
 - build_exe.bat
 
-Что делает скрипт:
-- активирует venv (если найдено);
-- очищает build/dist;
-- запускает generate_build_metadata.py;
-- генерирует имя exe из версии;
-- вызывает pyinstaller --onefile --windowed c нужными add-data.
+What the script does:
+- activates venv (if found);
+- cleans build/dist;
+- runs generate_build_metadata.py;
+- generates exe name from version;
+- calls pyinstaller --onefile --windowed with necessary add-data.
 
-Дополнительно:
-- generate_build_metadata.py формирует build/version_file.txt в совместимом формате для текущего PyInstaller.
+Additionally:
+- generate_build_metadata.py generates build/version_file.txt in compatible format for current PyInstaller.
 
-## Быстрая навигация по коду
+## Quick Code Navigation
 
-- Точка входа: main.py
-- Главное окно: app/ui/main_window.py
-- Домашнее окно: app/ui/home_window.py
-- Алгоритмы: app/core/indices_calculator.py
-- История состояний: app/core/datastore.py
-- Сохранение проектов: app/services/project_manager.py
-- Импорт/экспорт: app/data/loader.py, app/data/exporter.py
-- Сборка EXE: build_exe.bat, generate_build_metadata.py
+- Entry point: main.py
+- Main window: app/ui/main_window.py
+- Home window: app/ui/home_window.py
+- Algorithms: app/core/indices_calculator.py
+- State history: app/core/datastore.py
+- Project saving: app/services/project_manager.py
+- Import/export: app/data/loader.py, app/data/exporter.py
+- EXE build: build_exe.bat, generate_build_metadata.py

@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QProgressBar
 )
-from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal, QSize
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from app.data.exporter import save_results
@@ -99,8 +99,13 @@ class MainWindow(QMainWindow):
         # ===== TOOLBAR =====
         button_layout = QHBoxLayout()
 
-        self.home_button = QPushButton("Home")
-        self.load_button = QPushButton("Load data")
+        self.home_button = QPushButton()
+        self.home_button.setIcon(QIcon(icon_path("main_menu_icon.png")))
+        self.home_button.setToolTip("Home")
+        
+        self.load_button = QPushButton()
+        self.load_button.setIcon(QIcon(icon_path("import_icon.png")))
+        self.load_button.setToolTip("Import data")
         
         # Создаём кнопки undo/redo с иконками
         self.undo_button = QPushButton()
@@ -123,14 +128,12 @@ class MainWindow(QMainWindow):
         self.rename_vertices_button = QPushButton("Rename Vertices")
 
         for button in [
-            self.home_button,
-            self.load_button,
             self.calc_button,
             self.rename_vertices_button,
         ]:
             self._mark_main_action_button(button)
 
-        for button in [self.undo_button, self.redo_button, self.export_button, self.save_button]:
+        for button in [self.home_button, self.load_button, self.undo_button, self.redo_button, self.export_button, self.save_button]:
             self._mark_icon_action_button(button)
 
         self.calc_button.setEnabled(False)
@@ -139,23 +142,20 @@ class MainWindow(QMainWindow):
         self.undo_button.setEnabled(False)
         self.redo_button.setEnabled(False)
         
-        # Сделаем кнопки undo/redo и save квадратными и компактными
-        self.undo_button.setMaximumWidth(40)
-        self.undo_button.setMaximumHeight(40)
-        self.redo_button.setMaximumWidth(40)
-        self.redo_button.setMaximumHeight(40)
-        self.export_button.setMaximumWidth(40)
-        self.export_button.setMaximumHeight(40)
-        self.save_button.setMaximumWidth(40)
-        self.save_button.setMaximumHeight(40)
+        toolbar_button_size = 48
+
+        # Сделаем кнопки с иконками квадратными и выровняем по высоте с action-кнопками
+        for btn in [self.home_button, self.load_button, self.undo_button, self.redo_button, self.export_button, self.save_button]:
+            btn.setFixedSize(toolbar_button_size, toolbar_button_size)
+            btn.setIconSize(QSize(30, 30))
 
         button_layout.addWidget(self.home_button)
+        button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.load_button)
+        button_layout.addWidget(self.export_button)
         button_layout.addWidget(self.undo_button)
         button_layout.addWidget(self.redo_button)
         button_layout.addWidget(self.calc_button)
-        button_layout.addWidget(self.export_button)
-        button_layout.addWidget(self.save_button)
         button_layout.addStretch()
 
         main_layout.addLayout(button_layout)
@@ -320,19 +320,23 @@ class MainWindow(QMainWindow):
 
     def _build_indices_dataframe(self, result, vertices, subset_size):
         data = {}
+        
+        # First, add all base indices
         data["Copeland"] = [result.get("copeland", {}).get(vertex, 0) for vertex in vertices]
-        data["Copeland (norm)"] = result.get("copeland_norm", [])
-
+        
         bundle_col = f"BI (s={subset_size})"
         data[bundle_col] = [result.get("bundle", {}).get(vertex, 0) for vertex in vertices]
-        data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
-
+        
         pivotal_col = f"PI (s={subset_size})"
         data[pivotal_col] = [result.get("pivotal", {}).get(vertex, 0) for vertex in vertices]
-        data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
-
+        
         pi_prime_col = f"PI' (w, s={subset_size})"
         data[pi_prime_col] = [result.get("pi_prime", {}).get(vertex, 0) for vertex in vertices]
+        
+        # Then, add all normalized versions
+        data["Copeland (norm)"] = result.get("copeland_norm", [])
+        data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
+        data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
         data[f"{pi_prime_col} (norm)"] = result.get("pi_prime_norm", [])
 
         return pd.DataFrame(data, index=vertices)
