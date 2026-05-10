@@ -2,7 +2,7 @@
 
   **TradeLink Studio** — a desktop application for computing and analyzing influence indices in directed weighted graphs. Supports data import from `.xlsx` and `.csv`, interactive matrix editing, and result export in `.xlsx` format.
 
-  **Author:** Mishchenko Alexander, 2nd year student, HSE University, Faculty of Computer Science, Software Engineering Program.
+  **Author:** Alexander Mishchenko, 2nd year student, HSE University, Faculty of Computer Science, Software Engineering Program.
 
   **Contact:** admishchenko@edu.hse.ru
 
