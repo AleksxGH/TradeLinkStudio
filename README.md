@@ -8,6 +8,10 @@
 
   Application developed as a coursework project in the 2nd year of study, academic year 2025-2026.
 
+  [Download the latest release of TradeLink Studio](https://github.com/AleksxGH/TradeLinkStudio/releases/latest)
+
+  [Russian version of README](README-ru.md)  
+  
   ## Feature Overview
 
   - Data import from XLSX and CSV (see "Input Data Format" section).
