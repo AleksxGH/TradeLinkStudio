@@ -159,17 +159,17 @@
 1. Создать и активировать виртуальное окружение.
 2. Установить зависимости:
 
-   pip install -r requirements.txt
+   ```pip install -r requirements.txt```
 
 3. Запустить приложение:
 
-   python main.py
+   ```python main.py```
 
 ## Сборка EXE (PyInstaller)
 
-Используйте скрипт:
+Запустите скрипт скрипт:
 
-- build_exe.bat
+```./build_exe.bat```
 
 Что делает скрипт:
 - активирует venv (если найдено);
