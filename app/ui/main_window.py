@@ -320,19 +320,23 @@ class MainWindow(QMainWindow):
 
     def _build_indices_dataframe(self, result, vertices, subset_size):
         data = {}
+        
+        # First, add all base indices
         data["Copeland"] = [result.get("copeland", {}).get(vertex, 0) for vertex in vertices]
-        data["Copeland (norm)"] = result.get("copeland_norm", [])
-
+        
         bundle_col = f"BI (s={subset_size})"
         data[bundle_col] = [result.get("bundle", {}).get(vertex, 0) for vertex in vertices]
-        data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
-
+        
         pivotal_col = f"PI (s={subset_size})"
         data[pivotal_col] = [result.get("pivotal", {}).get(vertex, 0) for vertex in vertices]
-        data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
-
+        
         pi_prime_col = f"PI' (w, s={subset_size})"
         data[pi_prime_col] = [result.get("pi_prime", {}).get(vertex, 0) for vertex in vertices]
+        
+        # Then, add all normalized versions
+        data["Copeland (norm)"] = result.get("copeland_norm", [])
+        data[f"{bundle_col} (norm)"] = result.get("bundle_norm", [])
+        data[f"{pivotal_col} (norm)"] = result.get("pivotal_norm", [])
         data[f"{pi_prime_col} (norm)"] = result.get("pi_prime_norm", [])
 
         return pd.DataFrame(data, index=vertices)
