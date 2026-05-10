@@ -8,7 +8,51 @@
 
 QLabel#appTitle {
     font-size: 40px;
-    font-weight: 500;
+    font-weight: 400;
+    margin-top: 40px
+}
+
+QLabel#brandAppTitle {
+    font-size: 24px;
+    font-weight: 400;
+    color: #000000;
+}
+
+QLabel#versionLabel {
+    font-size: 20px;
+    font-weight: 400;
+    color: #5C5E60;
+}
+
+QFrame#projectsFrame {
+    background-color: #F7F8FB;
+    border: 1px solid #D7DEEB;
+    border-radius: 14px;
+}
+
+QLineEdit#searchProjectInput {
+    border: 1px solid #CFD6E4;
+    border-radius: 7px;
+    background-color: #FFFFFF;
+    padding: 11px 10px;
+    color: #000000;
+    font-size: 22px;
+    font-weight: 400;
+}
+
+QWidget#projectsContainer {
+    background-color: #F7F8FB;
+}
+
+QFrame#projectItemCard {
+    background-color: #E6EAEF;
+    border: 2px solid #BFC8D4;
+    border-radius: 10px;
+}
+
+QFrame#projectItemCard:hover {
+    background-color: #E6EAEF;
+    border: 2px solid #AFB9C6;
 }
 
 QPushButton,
@@ -28,21 +72,22 @@ QMenu {
 
 QPushButton,
 QToolButton {
-    background-color: #F4F7FC;
-    border: 1px solid #CFD8E3;
+    background-color: #4682B4;
+    border: 1px solid #2A5080;
     border-radius: 8px;
     padding: 8px 16px;
+    color: #000000;
 }
 
 QPushButton:hover,
 QToolButton:hover {
-    background-color: #EAF1FF;
-    border-color: #AFC1E6;
+    background-color: #37729E;
+    border-color: #1F4870;
 }
 
 QPushButton:pressed,
 QToolButton:pressed {
-    background-color: #DCE7FA;
+    background-color: #255078;
 }
 
 QPushButton:disabled,
@@ -54,20 +99,9 @@ QToolButton:disabled {
 
 QPushButton:enabled,
 QToolButton:enabled {
-    background-color: #4682b4;
-    color: #FFFFFF;
-    border-color: #2e5080;
-}
-
-QPushButton:enabled:hover,
-QToolButton:enabled:hover {
-    background-color: #36669a;
-    border-color: #1f3860;
-}
-
-QPushButton:enabled:pressed,
-QToolButton:enabled:pressed {
-    background-color: #274680;
+    background-color: #4682B4;
+    color: #000000;
+    border-color: #2A5080;
 }
 
 QPushButton[mainAction="true"],
@@ -76,8 +110,32 @@ QPushButton[iconAction="true"] {
     font-weight: 500;
 }
 
+QPushButton[mainAction="true"],
+QToolButton[mainAction="true"] {
+    background-color: #4682B4;
+    border-color: #2A5080;
+}
+
+QPushButton[mainAction="true"]:hover,
+QToolButton[mainAction="true"]:hover {
+    background-color: #37729E;
+    border-color: #1F4870;
+}
+
+QPushButton[mainAction="true"]:pressed,
+QToolButton[mainAction="true"]:pressed {
+    background-color: #255078;
+}
+
+QPushButton[mainAction="true"]:disabled,
+QPushButton[iconAction="true"]:disabled {
+    color: #8B8B8B;
+    background-color: #E6E9EF;
+    border-color: #D0D5DE;
+}
+
 QTableView#dataTable {
-    background-color: #e0e8f9;
+    background-color: #dfe4eb;
     alternate-background-color: #f0f4fc;
 }
 
@@ -87,4 +145,44 @@ QMenu::item {
 
 QMenu::item:selected {
     background-color: #dbe6fb;
+}
+
+QMenu#projectItemMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E3;
+    border-radius: 12px;
+    padding: 6px;
+}
+
+QMenu#projectItemMenu::item {
+    padding: 8px 18px 8px 14px;
+    margin: 2px 4px;
+    border-radius: 8px;
+}
+
+QMenu#projectItemMenu::item:selected {
+    background-color: #dbe6fb;
+}
+
+/* Action card buttons on home page */
+QToolButton#newProjectActionButton,
+QToolButton#openProjectActionButton {
+    border: 3px solid #2F2F2F;
+    border-radius: 16px;
+    background-color: #E6EAEF;
+}
+
+QToolButton#newProjectActionButton:hover,
+QToolButton#openProjectActionButton:hover {
+    background-color: #D9DDE2;
+}
+
+QToolButton#newProjectActionButton:pressed,
+QToolButton#openProjectActionButton:pressed {
+    background-color: #CDD2D8;
+}
+
+/* Side panel color */
+QWidget#leftPanel {
+    background-color: #dfe4eb;
 }

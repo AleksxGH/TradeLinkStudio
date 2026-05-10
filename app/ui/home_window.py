@@ -2,7 +2,7 @@ import json
 import os
 
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtGui import QFont, QIcon, QPixmap, QPainter, QBrush, QColor
 from PyQt5.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -32,6 +32,25 @@ from app.ui.new_project_dialogue import NewProjectDialog
 from app.services.logging_service import log_debug, log_error
 
 
+def create_rounded_pixmap(pixmap, radius=20):
+    """Create a pixmap with rounded corners."""
+    if pixmap.isNull():
+        return pixmap
+    
+    size = pixmap.size()
+    rounded = QPixmap(size)
+    rounded.fill(QColor(0, 0, 0, 0))  # Transparent background
+    
+    painter = QPainter(rounded)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setBrush(QBrush(pixmap))
+    painter.setPen(Qt.NoPen)
+    painter.drawRoundedRect(0, 0, size.width(), size.height(), radius, radius)
+    painter.end()
+    
+    return rounded
+
+
 class HomeWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -54,24 +73,27 @@ class HomeWindow(QWidget):
 
         left_panel = QWidget()
         left_panel.setFixedWidth(340)
-        left_panel.setStyleSheet("background-color: #E0E8F9;")
+        left_panel.setObjectName("leftPanel")
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(24, 24, 24, 24)
         left_layout.setSpacing(10)
 
         brand_row = QHBoxLayout()
         brand_icon = QLabel()
-        brand_icon.setPixmap(QIcon(resolve_icon_path("app_icon.ico")).pixmap(QSize(80, 80)))
-        brand_icon.setStyleSheet("border-radius: 12px; background-color: transparent;")
+        original_pixmap = QIcon(resolve_icon_path("app_icon.ico")).pixmap(QSize(80, 80))
+        rounded_pixmap = create_rounded_pixmap(original_pixmap, radius=20)
+        brand_icon.setPixmap(rounded_pixmap)
+        brand_icon.setObjectName("brandIcon")
         brand_row.addWidget(brand_icon, 0, Qt.AlignTop)
+        brand_row.addSpacing(12)
 
         brand_text = QVBoxLayout()
+        brand_text.setContentsMargins(0, 0, 0, 0)
+        brand_text.setSpacing(0)
         brand_label = QLabel("TradeLink Studio")
-        brand_label.setFont(QFont("Open Sans", 200, QFont.Normal))
-        brand_label.setStyleSheet("color: #000000;")
+        brand_label.setObjectName("brandAppTitle")
         version_label = QLabel(self.version_text)
-        version_label.setFont(QFont("Open Sans", 20, QFont.Normal))
-        version_label.setStyleSheet("color: #000000;")
+        version_label.setObjectName("versionLabel")
         brand_text.addWidget(brand_label)
         brand_text.addWidget(version_label)
         brand_row.addLayout(brand_text)
@@ -136,13 +158,7 @@ class HomeWindow(QWidget):
         layout.addLayout(top_actions)
 
         projects_frame = QFrame()
-        projects_frame.setStyleSheet("""
-            QFrame {
-                background-color: #F7F8FB;
-                border: 1px solid #D7DEEB;
-                border-radius: 10px;
-            }
-        """)
+        projects_frame.setObjectName("projectsFrame")
         projects_frame.setMinimumHeight(300)
 
         projects_layout = QVBoxLayout(projects_frame)
@@ -156,16 +172,8 @@ class HomeWindow(QWidget):
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search project")
-        self.search_input.setFixedHeight(38)
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #CFD6E4;
-                border-radius: 7px;
-                background-color: #FFFFFF;
-                padding: 6px 10px;
-                color: #000000;
-            }
-        """)
+        self.search_input.setObjectName("searchProjectInput")
+        self.search_input.setFixedHeight(52)
         self.search_input.textChanged.connect(self.filter_projects)
         search_row.addWidget(self.search_input, 1)
         projects_layout.addLayout(search_row)
@@ -193,9 +201,10 @@ class HomeWindow(QWidget):
         """)
 
         self.projects_container = QWidget()
+        self.projects_container.setObjectName("projectsContainer")
         self.projects_container_layout = QVBoxLayout(self.projects_container)
         self.projects_container_layout.setContentsMargins(0, 0, 0, 0)
-        self.projects_container_layout.setSpacing(8)
+        self.projects_container_layout.setSpacing(12)
         self.projects_scroll.setWidget(self.projects_container)
         projects_layout.addWidget(self.projects_scroll, 1)
 
@@ -287,7 +296,7 @@ class HomeWindow(QWidget):
             }
             QPushButton:hover {
                 background-color: rgba(0, 0, 0, 0.06);
-                border-radius: 6px;
+                border-radius: 10px;
             }
             QPushButton:pressed {
                 background-color: rgba(0, 0, 0, 0.12);
@@ -309,19 +318,12 @@ class HomeWindow(QWidget):
         button.setIconSize(QSize(64, 64))
         button.setFixedSize(96, 96)
         button.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        button.setStyleSheet("""
-            QToolButton {
-                border: 2px solid #2F2F2F;
-                border-radius: 16px;
-                background-color: #F8F9FB;
-            }
-            QToolButton:hover {
-                background-color: #EEF3FF;
-            }
-            QToolButton:pressed {
-                background-color: #E3EBFF;
-            }
-        """)
+        
+        if text == "New Project":
+            button.setObjectName("newProjectActionButton")
+        elif text == "Open Project":
+            button.setObjectName("openProjectActionButton")
+        
         button.clicked.connect(callback)
 
         label = QLabel(text)
@@ -533,17 +535,7 @@ class HomeWindow(QWidget):
 
     def create_project_item(self, project):
         item_frame = QFrame()
-        item_frame.setStyleSheet("""
-            QFrame {
-                background-color: #FFFFFF;
-                border: 1px solid #E1E6F0;
-                border-radius: 8px;
-            }
-            QFrame:hover {
-                background-color: #FDFEFE;
-                border: 1px solid #CFD8E8;
-            }
-        """)
+        item_frame.setObjectName("projectItemCard")
         item_frame.setCursor(Qt.PointingHandCursor)
 
         item_layout = QHBoxLayout(item_frame)
@@ -573,8 +565,8 @@ class HomeWindow(QWidget):
 
         menu_btn = QPushButton()
         menu_btn.setIcon(QIcon(resolve_icon_path("menu_dots_icon.png")))
-        menu_btn.setIconSize(QSize(18, 18))
-        menu_btn.setFixedSize(28, 28)
+        menu_btn.setIconSize(QSize(22, 22))
+        menu_btn.setFixedSize(38, 38)
         menu_btn.setCursor(Qt.PointingHandCursor)
         menu_btn.setStyleSheet("""
             QPushButton {
@@ -588,6 +580,10 @@ class HomeWindow(QWidget):
         """)
 
         menu = QMenu(self)
+        menu.setObjectName("projectItemMenu")
+        menu.setAttribute(Qt.WA_TranslucentBackground, True)
+        menu.setAttribute(Qt.WA_StyledBackground, True)
+        menu.setWindowFlags(menu.windowFlags() | Qt.FramelessWindowHint)
         rename_action = menu.addAction(QIcon(resolve_icon_path("rename_icon.png")), "Rename")
         duplicate_action = menu.addAction(QIcon(resolve_icon_path("dublicate_icon.png")), "Duplicate")
         delete_action = menu.addAction(QIcon(resolve_icon_path("delete_icon.png")), "Delete")
@@ -598,6 +594,7 @@ class HomeWindow(QWidget):
 
         menu_btn.clicked.connect(lambda: menu.exec_(menu_btn.mapToGlobal(menu_btn.rect().bottomRight())))
         item_layout.addWidget(menu_btn)
+        item_layout.setAlignment(menu_btn, Qt.AlignTop | Qt.AlignRight)
 
         for child in item_frame.findChildren(QLabel):
             child.setAttribute(Qt.WA_TransparentForMouseEvents, True)
