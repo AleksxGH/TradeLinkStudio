@@ -6,7 +6,7 @@
 
   **Contact:** admishchenko@edu.hse.ru
 
-  Application developed as a coursework project in the 2nd year of study, academic year 2025-2026.
+  Application developed as a term project in the 2nd year of study, academic year 2025-2026.
 
   [Download the latest release of TradeLink Studio](https://github.com/AleksxGH/TradeLinkStudio/releases/latest)
 
